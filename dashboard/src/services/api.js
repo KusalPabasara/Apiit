@@ -119,4 +119,51 @@ export const emergencyAPI = {
   end: (id) => fetchAPI(`/emergency/${id}/end`, { method: 'POST' }),
 };
 
-export default { authAPI, incidentsAPI, reliefCampsAPI, rescueMissionsAPI, alertsAPI, emergencyAPI };
+// Extraction API - For intelligent description extraction
+export const extractionAPI = {
+  // Supplies
+  getSupplies: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return fetchAPI(`/extraction/supplies${query ? `?${query}` : ''}`);
+  },
+  getAggregatedSupplies: () => fetchAPI('/extraction/supplies/aggregated'),
+  saveSupplies: (incidentId, supplies) => 
+    fetchAPI('/extraction/supplies', { method: 'POST', body: JSON.stringify({ incidentId, supplies }) }),
+  updateSupply: (id, data) => 
+    fetchAPI(`/extraction/supplies/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  
+  // Vulnerable Groups
+  getVulnerableGroups: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return fetchAPI(`/extraction/vulnerable-groups${query ? `?${query}` : ''}`);
+  },
+  getAggregatedVulnerableGroups: () => fetchAPI('/extraction/vulnerable-groups/aggregated'),
+  saveVulnerableGroups: (incidentId, groups) => 
+    fetchAPI('/extraction/vulnerable-groups', { method: 'POST', body: JSON.stringify({ incidentId, groups }) }),
+  
+  // Locations
+  getLocations: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return fetchAPI(`/extraction/locations${query ? `?${query}` : ''}`);
+  },
+  getLocationsByType: () => fetchAPI('/extraction/locations/by-type'),
+  saveLocations: (incidentId, locations) => 
+    fetchAPI('/extraction/locations', { method: 'POST', body: JSON.stringify({ incidentId, locations }) }),
+  
+  // Review Queue
+  getReviewQueue: (status) => 
+    fetchAPI(`/extraction/review-queue${status ? `?status=${status}` : ''}`),
+  addToReviewQueue: (data) => 
+    fetchAPI('/extraction/review-queue', { method: 'POST', body: JSON.stringify(data) }),
+  processReview: (id, data) => 
+    fetchAPI(`/extraction/review-queue/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  
+  // Full extraction save
+  saveExtraction: (data) => 
+    fetchAPI('/extraction/save-extraction', { method: 'POST', body: JSON.stringify(data) }),
+  
+  // Statistics
+  getStats: () => fetchAPI('/extraction/stats'),
+};
+
+export default { authAPI, incidentsAPI, reliefCampsAPI, rescueMissionsAPI, alertsAPI, emergencyAPI, extractionAPI };

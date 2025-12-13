@@ -8,6 +8,7 @@ import reliefCampRoutes from './routes/relief-camps.js';
 import rescueMissionRoutes from './routes/rescue-missions.js';
 import alertRoutes from './routes/alerts.js';
 import emergencyRoutes from './routes/emergencies.js';
+import extractionRoutes from './routes/extraction.js';
 import { initDB } from './db/database.js';
 
 const app = express();
@@ -46,6 +47,7 @@ app.use('/api/relief-camps', reliefCampRoutes);
 app.use('/api/rescue-missions', rescueMissionRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/emergency', emergencyRoutes);
+app.use('/api/extraction', extractionRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

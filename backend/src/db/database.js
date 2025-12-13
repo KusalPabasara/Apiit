@@ -14,7 +14,15 @@ const defaultData = {
   emergencies: [],      // Emergency SOS with location tracking
   reliefCamps: [],      // Relief camp management
   rescueMissions: [],   // Rescue mission tracking
-  alerts: []            // Intelligent alert system
+  alerts: [],           // Intelligent alert system
+  
+  // ===== NEW: Extracted Data Collections =====
+  extractedSupplies: [],      // Supplies extracted from descriptions
+  extractedLocations: [],     // Location categories from descriptions
+  vulnerableGroups: [],       // Vulnerable groups identified
+  adminReviewQueue: [],       // Items pending admin review
+  keywordLearning: [],        // Admin corrections for keyword learning
+  supplyAggregates: []        // Aggregated supply needs
 };
 
 // Create database instance
@@ -33,6 +41,14 @@ async function initDB() {
   db.data.reliefCamps ||= [];
   db.data.rescueMissions ||= [];
   db.data.alerts ||= [];
+  
+  // Ensure new extraction collections exist
+  db.data.extractedSupplies ||= [];
+  db.data.extractedLocations ||= [];
+  db.data.vulnerableGroups ||= [];
+  db.data.adminReviewQueue ||= [];
+  db.data.keywordLearning ||= [];
+  db.data.supplyAggregates ||= [];
   
   // Add default users if none exist
   if (db.data.users.length === 0) {

@@ -17,7 +17,8 @@ import {
   List,
   Wifi,
   WifiOff,
-  Bell
+  Bell,
+  Sparkles
 } from 'lucide-react';
 import { authAPI, incidentsAPI } from '../services/api';
 import socketService from '../services/socket';
@@ -26,6 +27,7 @@ import IncidentList from '../components/IncidentList';
 import MapSidebarKPIs from '../components/MapSidebarKPIs';
 import MapBottomKPIs from '../components/MapBottomKPIs';
 import MapChartsSection from '../components/MapChartsSection';
+import ExtractionDashboard from '../components/ExtractionDashboard';
 import { mockIncidents } from '../data/mockIncidents';
 
 function DashboardPage({ onLogout }) {
@@ -37,7 +39,7 @@ function DashboardPage({ onLogout }) {
     return mockIncidents;
   });
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState('map'); // 'map' | 'list'
+  const [view, setView] = useState('map'); // 'map' | 'list' | 'extraction'
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [newIncidentAlert, setNewIncidentAlert] = useState(null);
   const [isConnected, setIsConnected] = useState(true);
@@ -156,6 +158,17 @@ function DashboardPage({ onLogout }) {
               <List className="w-3.5 h-3.5" />
               List
             </button>
+            <button
+              onClick={() => setView('extraction')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+                view === 'extraction' 
+                  ? 'bg-white text-purple-600 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Extraction
+            </button>
           </div>
 
           {/* Right Section */}
@@ -272,6 +285,13 @@ function DashboardPage({ onLogout }) {
                     setView('map');
                   }}
                 />
+              </div>
+            )}
+            
+            {/* Extraction Dashboard View */}
+            {view === 'extraction' && (
+              <div className="flex-1 overflow-hidden">
+                <ExtractionDashboard incidents={incidents} />
               </div>
             )}
           </>
