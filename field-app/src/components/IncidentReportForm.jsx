@@ -24,6 +24,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useDeviceStore } from '../stores/deviceStore';
+import { useAuth } from '../context/AuthContext';
 import { db, INCIDENT_TYPES, SEVERITY_LEVELS } from '../db/database';
 import syncEngine from '../services/syncEngine';
 
@@ -42,8 +43,9 @@ const API_URL = getApiUrl();
 
 export default function IncidentReportForm() {
   const navigate = useNavigate();
-  const { token, deviceId, deviceName } = useDeviceStore();
-  const { location, loading: locationLoading, error: locationError, getCurrentPosition } = useGeolocation();
+  const { deviceId, deviceName } = useDeviceStore();
+  const { user } = useAuth();
+  const { location, loading: locationLoading, error: locationError, getCurrentPosition, usingDefault } = useGeolocation();
   const { isOnline } = useNetworkStatus();
   
   // Form state
@@ -143,7 +145,10 @@ export default function IncidentReportForm() {
       timestamp: Date.now(),
       createdAt: new Date().toISOString(),
       deviceId,
-      responderName: deviceName || `Device-${deviceId?.slice(0, 8)}`,
+      // Use authenticated user info
+      responderName: user?.displayName || user?.email || deviceName || `Device-${deviceId?.slice(0, 8)}`,
+      responderEmail: user?.email || null,
+      responderUid: user?.uid || null,
       syncStatus: 0
     };
 
@@ -152,16 +157,31 @@ export default function IncidentReportForm() {
       await db.reports.put(report);
       console.log('💾 Report saved locally:', reportId.slice(0, 8));
 
-      // Try to sync immediately if online
-      if (isOnline && token) {
+      // Try to sync immediately if online using the device endpoint (no auth required)
+      if (isOnline) {
         try {
-          const response = await fetch(`${API_URL}/incidents`, {
+          // Use the device endpoint which doesn't require auth token
+          const payload = {
+            local_id: report.id,
+            incident_type: report.type?.toLowerCase().replace(' ', '_'),
+            severity: report.severity,
+            latitude: report.latitude,
+            longitude: report.longitude,
+            description: report.description || '',
+            photo: report.photo || null,
+            created_at: report.createdAt,
+            device_id: report.deviceId,
+            responder_name: report.responderName,
+            responder_email: report.responderEmail,
+            responder_uid: report.responderUid
+          };
+
+          const response = await fetch(`${API_URL}/incidents/device`, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
+              'Content-Type': 'application/json'
             },
-            body: JSON.stringify(report)
+            body: JSON.stringify(payload)
           });
 
           if (response.ok) {
@@ -282,9 +302,9 @@ export default function IncidentReportForm() {
         <div className="card-aegis">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-              location ? 'bg-emerald-500/20' : 'bg-slate-700'
+              location ? (usingDefault ? 'bg-amber-500/20' : 'bg-emerald-500/20') : 'bg-slate-700'
             }`}>
-              <MapPin className={`w-5 h-5 ${location ? 'text-emerald-400' : 'text-gray-400'}`} />
+              <MapPin className={`w-5 h-5 ${location ? (usingDefault ? 'text-amber-400' : 'text-emerald-400') : 'text-gray-400'}`} />
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-400">GPS Location</p>
@@ -294,9 +314,16 @@ export default function IncidentReportForm() {
                   Getting location...
                 </p>
               ) : location ? (
-                <p className="text-white font-mono text-sm">
-                  {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
-                </p>
+                <div>
+                  <p className="text-white font-mono text-sm">
+                    {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                  </p>
+                  {usingDefault && (
+                    <p className="text-amber-400 text-xs mt-1">
+                      ⚠️ Using default (Ratnapura). HTTPS required for GPS.
+                    </p>
+                  )}
+                </div>
               ) : (
                 <p className="text-amber-400 text-sm">
                   {locationError || 'Unable to get location'}

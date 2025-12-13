@@ -41,12 +41,34 @@ export default defineConfig({
         ]
       },
       workbox: {
-        // Cache all static assets
+        // Cache all static assets including locales
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json,webmanifest}'],
-        // Don't cache service worker itself
+        // CRITICAL: Navigate fallback for SPA - serves index.html for all routes
         navigateFallback: '/app/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
+        // Only exclude API calls from fallback
+        navigateFallbackDenylist: [/^\/api\//, /^\/socket\.io\//],
+        // Allow navigation fallback for all app routes
+        navigateFallbackAllowlist: [/^\/app\//],
+        // Skip waiting and claim clients immediately
+        skipWaiting: true,
+        clientsClaim: true,
+        // CRITICAL: Modify URLs to include base path
+        modifyURLPrefix: {
+          '': '/app/'
+        },
         runtimeCaching: [
+          {
+            // Cache navigation requests
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages-cache',
+              networkTimeoutSeconds: 3,
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
           {
             // Cache API calls with NetworkFirst strategy
             urlPattern: /^https?:\/\/.*\/api\/.*/i,
@@ -57,7 +79,7 @@ export default defineConfig({
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
               },
-              networkTimeoutSeconds: 10,
+              networkTimeoutSeconds: 5,
               cacheableResponse: {
                 statuses: [0, 200]
               }

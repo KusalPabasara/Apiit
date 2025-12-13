@@ -50,7 +50,9 @@ router.post('/device', async (req, res) => {
       photo,
       created_at,
       device_id,
-      responder_name
+      responder_name,
+      responder_email,
+      responder_uid
     } = req.body;
 
     // Validate required fields
@@ -75,6 +77,8 @@ router.post('/device', async (req, res) => {
       photo: photo || null,
       device_id,
       responder_name: responder_name || `Device-${device_id.slice(0, 8)}`,
+      responder_email: responder_email || null,
+      responder_uid: responder_uid || null,
       created_at: created_at || new Date().toISOString(),
       synced_at: new Date().toISOString()
     };

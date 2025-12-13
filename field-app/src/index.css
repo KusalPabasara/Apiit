@@ -133,12 +133,26 @@ input, select, textarea {
 }
 
 .input-aegis {
-  @apply w-full px-4 py-3.5 rounded-xl border-2 border-transparent;
+  @apply w-full py-3.5 rounded-xl border-2 border-transparent;
+  padding-left: 1rem;
+  padding-right: 1rem;
   background: var(--aegis-dark-2);
   color: var(--aegis-white);
   font-size: 1rem;
   font-weight: 500;
   transition: all 0.2s ease;
+}
+
+/* Input with left icon */
+.input-aegis.has-icon-left,
+.input-aegis.pl-12 {
+  padding-left: 3rem !important;
+}
+
+/* Input with right icon */
+.input-aegis.has-icon-right,
+.input-aegis.pr-12 {
+  padding-right: 3rem !important;
 }
 
 .input-aegis::placeholder {
@@ -155,6 +169,36 @@ input, select, textarea {
 .input-aegis:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Input wrapper for icons */
+.input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.input-wrapper .input-icon-left {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--aegis-gray);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.input-wrapper .input-icon-right {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--aegis-gray);
+  cursor: pointer;
+  z-index: 1;
+}
+
+.input-wrapper .input-icon-right:hover {
+  color: var(--aegis-light);
 }
 
 /* ============================================

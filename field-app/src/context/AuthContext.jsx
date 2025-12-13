@@ -1,87 +1,154 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '../services/api';
+/**
+ * Firebase Auth Context for Project Aegis
+ * 
+ * Hackathon Requirement:
+ * "A responder logs in once while online to establish their session.
+ * The app must securely cache this session. If the user closes the app 
+ * and re-opens it hours later in a dead zone, they must still be logged in."
+ * 
+ * Firebase Auth handles this automatically with browserLocalPersistence!
+ */
+
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { firebaseAuth, auth } from '../config/firebase';
 
 const AuthContext = createContext(null);
 
-const AUTH_STORAGE_KEY = 'aegis_auth';
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  // Flag to ignore auth state changes during registration
+  const isRegistering = useRef(false);
 
-  // Load auth from localStorage on mount (PERSISTENT AUTH)
+  // Listen for Firebase auth state changes
+  // This automatically handles offline persistence!
   useEffect(() => {
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (stored) {
-      try {
-        const { user, token, expiresAt } = JSON.parse(stored);
-        
-        // Check if token is expired (7 days)
-        if (new Date(expiresAt) > new Date()) {
-          setUser(user);
-          setToken(token);
-          
-          // Verify token with server if online (non-blocking)
-          if (navigator.onLine) {
-            authAPI.verify().catch(() => {
-              // Token invalid on server - but keep local session for offline use
-              console.log('Token verification failed, keeping local session');
-            });
-          }
-        } else {
-          // Token expired, clear storage
-          localStorage.removeItem(AUTH_STORAGE_KEY);
-        }
-      } catch (e) {
-        console.error('Failed to parse stored auth:', e);
-        localStorage.removeItem(AUTH_STORAGE_KEY);
+    const unsubscribe = firebaseAuth.onAuthStateChanged((firebaseUser) => {
+      // Ignore auth changes during registration process
+      if (isRegistering.current) {
+        return;
       }
-    }
-    setLoading(false);
+      
+      if (firebaseUser) {
+        // User is signed in
+        setUser({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+          photoURL: firebaseUser.photoURL
+        });
+        console.log('✅ User authenticated:', firebaseUser.displayName || firebaseUser.email);
+      } else {
+        // User is signed out
+        setUser(null);
+        console.log('👤 No user authenticated');
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
+  // Register new responder (does NOT auto-login)
+  const register = async (email, password, displayName) => {
+    setError(null);
+    // Set flag to prevent auth state listener from updating user during registration
+    isRegistering.current = true;
+    
+    try {
+      const firebaseUser = await firebaseAuth.register(email, password, displayName);
+      // Sign out immediately after registration - user must login manually
+      await firebaseAuth.logout();
+      // Ensure user state is null
+      setUser(null);
+      
+      return {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        displayName: firebaseUser.displayName,
+        success: true
+      };
+    } catch (err) {
+      setError(getAuthErrorMessage(err.code));
+      throw err;
+    } finally {
+      // Reset the flag after registration completes
+      isRegistering.current = false;
+    }
+  };
+
   // Login function
-  const login = async (username, password) => {
-    const response = await authAPI.login(username, password);
-    
-    const authData = {
-      user: response.user,
-      token: response.token,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
-    };
-    
-    // Store in localStorage for persistent auth
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData));
-    
-    setUser(response.user);
-    setToken(response.token);
-    
-    return response.user;
+  const login = async (email, password) => {
+    setError(null);
+    try {
+      const firebaseUser = await firebaseAuth.login(email, password);
+      return {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        displayName: firebaseUser.displayName
+      };
+    } catch (err) {
+      setError(getAuthErrorMessage(err.code));
+      throw err;
+    }
   };
 
   // Logout function
-  const logout = () => {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    setUser(null);
-    setToken(null);
+  const logout = async () => {
+    setError(null);
+    try {
+      await firebaseAuth.logout();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
   };
 
   // Check if authenticated (works offline!)
-  const isAuthenticated = !!user && !!token;
+  const isAuthenticated = !!user;
 
   return (
     <AuthContext.Provider value={{ 
       user, 
-      token, 
       loading, 
+      error,
       login, 
-      logout, 
+      logout,
+      register,
       isAuthenticated 
     }}>
       {children}
     </AuthContext.Provider>
   );
+}
+
+// Helper to get user-friendly error messages
+function getAuthErrorMessage(code) {
+  switch (code) {
+    case 'auth/email-already-in-use':
+      return 'This email is already registered. Please login instead.';
+    case 'auth/invalid-email':
+      return 'Invalid email address.';
+    case 'auth/operation-not-allowed':
+      return 'Email/password accounts are not enabled.';
+    case 'auth/weak-password':
+      return 'Password is too weak. Use at least 6 characters.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled.';
+    case 'auth/user-not-found':
+      return 'No account found with this email.';
+    case 'auth/wrong-password':
+      return 'Incorrect password.';
+    case 'auth/invalid-credential':
+      return 'Invalid email or password.';
+    case 'auth/too-many-requests':
+      return 'Too many failed attempts. Please try again later.';
+    case 'auth/network-request-failed':
+      return 'Network error. Please check your connection.';
+    default:
+      return 'Authentication error. Please try again.';
+  }
 }
 
 export function useAuth() {

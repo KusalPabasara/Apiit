@@ -17,8 +17,9 @@ const getApiUrl = () => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
-  // In production, use the same host as the app
+  // In production, use the same host and protocol as the app
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    // Use HTTP for API since backend doesn't have SSL
     return `http://${window.location.hostname}:3001/api`;
   }
   // Default to localhost for development
@@ -99,12 +100,12 @@ class SyncEngine {
       }
     });
 
-    // Periodic sync check every 30 seconds when online
+    // Periodic sync check every 60 seconds when online (reduced frequency)
     setInterval(() => {
       if (navigator.onLine && !this.isSyncing) {
-        this.syncAll();
+        this.syncAllSilent(); // Use silent version for periodic checks
       }
-    }, 30000);
+    }, 60000);
 
     // Initial sync check with delay
     if (navigator.onLine) {
@@ -113,14 +114,14 @@ class SyncEngine {
   }
 
   // Sync all pending reports
-  async syncAll() {
+  async syncAll(silent = false) {
     if (this.isSyncing) {
-      console.log('⏳ Sync already in progress');
+      if (!silent) console.log('⏳ Sync already in progress');
       return;
     }
 
     if (!navigator.onLine) {
-      console.log('📴 Offline - skipping sync');
+      if (!silent) console.log('📴 Offline - skipping sync');
       return;
     }
 
@@ -129,7 +130,11 @@ class SyncEngine {
 
     try {
       const unsyncedReports = await getUnsyncedReports();
-      console.log(`📤 Found ${unsyncedReports.length} unsynced reports`);
+      
+      // Only log if there are reports or not silent
+      if (unsyncedReports.length > 0 || !silent) {
+        console.log(`📤 Found ${unsyncedReports.length} unsynced reports`);
+      }
 
       if (unsyncedReports.length === 0) {
         this.notify('syncComplete', { synced: 0 });
@@ -166,6 +171,11 @@ class SyncEngine {
     }
   }
 
+  // Silent sync for periodic checks (no logging unless there's something to sync)
+  async syncAllSilent() {
+    return this.syncAll(true);
+  }
+
   // Sync a single report (works with or without token - uses device ID)
   async syncReport(report) {
     try {
@@ -189,7 +199,9 @@ class SyncEngine {
         photo: report.photo || null,
         created_at: report.createdAt,
         device_id: report.deviceId,
-        responder_name: report.responderName || `Device-${report.deviceId?.slice(0, 8)}`
+        responder_name: report.responderName || `Device-${report.deviceId?.slice(0, 8)}`,
+        responder_email: report.responderEmail || null,
+        responder_uid: report.responderUid || null
       };
 
       const response = await fetch(`${API_URL}/incidents/device`, {

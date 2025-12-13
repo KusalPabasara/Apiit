@@ -1,7 +1,3 @@
-# Markdown and PDF files
-*.md
-*.pdf
-
 # Dependencies
 node_modules/
 .pnp
