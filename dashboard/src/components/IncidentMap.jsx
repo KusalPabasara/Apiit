@@ -89,7 +89,7 @@ function IncidentMap({ incidents, selectedIncident, onSelectIncident }) {
   };
 
   return (
-    <div className="h-[70vh] rounded-xl overflow-hidden border border-slate-700">
+    <div className="h-full w-full">
       <MapContainer
         center={defaultCenter}
         zoom={defaultZoom}
@@ -122,7 +122,7 @@ function IncidentMap({ incidents, selectedIncident, onSelectIncident }) {
             <Popup>
               <div className="min-w-[200px]">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-white">
+                  <h3 className="font-bold text-gray-900">
                     {getTypeName(incident.incident_type)}
                   </h3>
                   <span 
@@ -134,12 +134,12 @@ function IncidentMap({ incidents, selectedIncident, onSelectIncident }) {
                 </div>
                 
                 {incident.description && (
-                  <p className="text-sm text-slate-300 mb-2 line-clamp-2">
+                  <p className="text-sm text-gray-700 mb-2 line-clamp-2">
                     {incident.description}
                   </p>
                 )}
                 
-                <div className="space-y-1 text-xs text-slate-400">
+                <div className="space-y-1 text-xs text-gray-600">
                   <p className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {formatDate(incident.created_at)}
@@ -167,20 +167,20 @@ function IncidentMap({ incidents, selectedIncident, onSelectIncident }) {
         ))}
       </MapContainer>
       
-      {/* Legend */}
-      <div className="absolute bottom-6 left-6 z-[1000] bg-slate-800 rounded-lg p-3 shadow-lg">
-        <p className="text-xs text-slate-400 mb-2 font-medium">Incident Types</p>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs text-slate-300">
+      {/* Legend - Top Right */}
+      <div className="absolute top-4 right-4 z-[1000] bg-white rounded-lg p-3 shadow-lg border border-gray-200">
+        <p className="text-xs text-gray-600 mb-2 font-semibold">Incident Types</p>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 text-xs text-gray-700">
             <span>⛰️</span> Landslide
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-300">
+          <div className="flex items-center gap-2 text-xs text-gray-700">
             <span>🌊</span> Flood
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-300">
+          <div className="flex items-center gap-2 text-xs text-gray-700">
             <span>🚧</span> Road Block
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-300">
+          <div className="flex items-center gap-2 text-xs text-gray-700">
             <span>⚡</span> Power Line Down
           </div>
         </div>
