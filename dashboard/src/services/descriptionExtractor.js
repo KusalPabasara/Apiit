@@ -41,14 +41,8 @@ export async function extractFromDescription(description, options = {}) {
   const finalResult = mergeExtractions(keywordExtraction, llmExtraction);
   
   // Step 6: Determine if admin review needed
-  // Review needed if: forced, low confidence, or no data extracted
-  const hasNoData = (finalResult.supplies?.length || 0) === 0 && 
-                    (finalResult.locations?.length || 0) === 0 && 
-                    (finalResult.vulnerableGroups?.length || 0) === 0;
-  
   const needsReview = forceReview || 
-    confidence < (1 - autoApproveThreshold) ||
-    hasNoData ||
+    confidence < 0.5 ||
     (finalResult.uncertainItems?.length || 0) > 0;
 
   // Step 7: Determine auto-approval status
