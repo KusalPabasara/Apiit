@@ -358,7 +358,7 @@ function ExtractionDashboard({ incidents = [] }) {
 
             {/* Review Queue Tab */}
             {activeTab === 'review' && (
-              <AdminReviewQueue />
+              <AdminReviewQueue extractionResults={extractionResults} />
             )}
           </>
         )}

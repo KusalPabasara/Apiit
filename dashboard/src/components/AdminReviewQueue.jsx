@@ -19,7 +19,7 @@ const statusColors = {
   rejected: 'bg-red-100 text-red-800 border-red-200'
 };
 
-function AdminReviewQueue({ onDataUpdate }) {
+function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('pending');
@@ -29,19 +29,83 @@ function AdminReviewQueue({ onDataUpdate }) {
   const [adminNotes, setAdminNotes] = useState('');
   const [processing, setProcessing] = useState(false);
 
-  // Fetch review queue
+  // Build review queue from extraction results
   useEffect(() => {
-    fetchQueue();
-  }, [filter]);
+    buildReviewQueue();
+  }, [extractionResults, filter]);
 
-  const fetchQueue = async () => {
+  const buildReviewQueue = async () => {
     setLoading(true);
     try {
-      const data = await extractionAPI.getReviewQueue(filter !== 'all' ? filter : undefined);
-      setQueue(data);
+      // First, try to fetch from API
+      try {
+        const apiData = await extractionAPI.getReviewQueue(filter !== 'all' ? filter : undefined);
+        if (apiData && apiData.length > 0) {
+          setQueue(apiData);
+          setLoading(false);
+          return;
+        }
+      } catch (apiError) {
+        console.log('API not available, building from extraction results');
+      }
+
+      // Build queue from extraction results
+      const reviewItems = extractionResults
+        .filter(({ extraction, incident }) => {
+          // Only include items that need review OR have very low confidence
+          const needsReview = extraction.needsReview || (extraction.confidence || 0) < 0.5;
+          if (!needsReview) return false;
+          
+          // Apply filter
+          if (filter === 'pending') {
+            return true; // All items needing review are pending
+          }
+          if (filter === 'all') {
+            return true;
+          }
+          return false;
+        })
+        .map(({ extraction, incident }, index) => {
+          const confidence = extraction.confidence || 0;
+          return {
+            id: `rev_${incident.id || `ext_${index}`}`,
+            incidentId: incident.id,
+            originalText: extraction.originalText || incident.description,
+            extractedData: {
+              supplies: extraction.supplies || [],
+              locations: extraction.locations || [],
+              vulnerableGroups: extraction.vulnerableGroups || []
+            },
+            confidence: confidence,
+            reason: confidence < 0.3 
+              ? 'Very low confidence - no keywords matched' 
+              : confidence < 0.5
+              ? 'Low confidence extraction'
+              : extraction.uncertainItems?.length > 0
+              ? 'Contains uncertain items'
+              : 'Needs verification',
+            status: 'pending',
+            createdAt: extraction.timestamp || incident.created_at || new Date().toISOString(),
+            extractionMethod: extraction.extractionMethod || 'keyword'
+          };
+        });
+
+      console.log('Review queue built:', {
+        totalExtractions: extractionResults.length,
+        needsReview: extractionResults.filter(r => r.extraction.needsReview || (r.extraction.confidence || 0) < 0.5).length,
+        reviewItems: reviewItems.length,
+        filter
+      });
+
+      // If no items from extraction, use mock data for demo
+      if (reviewItems.length === 0 && filter === 'pending') {
+        setQueue(getMockQueue());
+      } else {
+        setQueue(reviewItems);
+      }
     } catch (error) {
-      console.error('Error fetching review queue:', error);
-      // Use mock data for demo
+      console.error('Error building review queue:', error);
+      // Fallback to mock data
       setQueue(getMockQueue());
     } finally {
       setLoading(false);
@@ -272,7 +336,7 @@ function AdminReviewQueue({ onDataUpdate }) {
             </div>
           </div>
           <button
-            onClick={fetchQueue}
+            onClick={buildReviewQueue}
             className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm flex items-center gap-1.5 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />

@@ -201,7 +201,7 @@ export const mockIncidents = [
     severity: 2,
     latitude: 6.6678,
     longitude: 80.3789,
-    description: 'New landslide warning at Kolonna area. Preventive evacuation of 20 families (85 people) to Kolonna Maha Vidyalaya (school). Among evacuees: 15 elders (3 bedridden), 10 children under 12, 4 pregnant women (one 8 months), 2 disabled. Immediate needs: 85 food packets, baby formula for 2 infants, adult diapers, wheelchairs, and temporary toilets.',
+    description: 'my dog is dead',
     responder_name: 'Team Echo',
     responder_id: 'resp_005',
     created_at: new Date(Date.now() - 15 * 60000).toISOString(),
