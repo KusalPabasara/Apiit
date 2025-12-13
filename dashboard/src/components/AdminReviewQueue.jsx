@@ -28,6 +28,25 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
   const [editedData, setEditedData] = useState(null);
   const [adminNotes, setAdminNotes] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [reviewStatuses, setReviewStatuses] = useState(() => {
+    // Load persisted review statuses from localStorage
+    try {
+      const saved = localStorage.getItem('aegis_review_statuses');
+      return saved ? JSON.parse(saved) : {};
+    } catch (error) {
+      console.error('Error loading review statuses:', error);
+      return {};
+    }
+  });
+
+  // Save review statuses to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('aegis_review_statuses', JSON.stringify(reviewStatuses));
+    } catch (error) {
+      console.error('Error saving review statuses:', error);
+    }
+  }, [reviewStatuses]);
 
   // Build review queue from extraction results
   useEffect(() => {
@@ -51,24 +70,52 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
 
       // Build queue from extraction results
       const reviewItems = extractionResults
-        .filter(({ extraction, incident }) => {
-          // Only include items that need review OR have very low confidence
+        .filter(({ extraction, incident }, index) => {
+          const itemId = `rev_${incident.id || `ext_${index}`}`;
+          const persistedStatus = reviewStatuses[itemId];
+          const currentStatus = persistedStatus?.status || 'pending';
+          
+          // If item has been processed (has persisted status), always include it
+          if (persistedStatus) {
+            // Apply filter based on current status
+            if (filter === 'pending') {
+              return currentStatus === 'pending';
+            }
+            if (filter === 'approved') {
+              return currentStatus === 'approved';
+            }
+            if (filter === 'corrected') {
+              return currentStatus === 'corrected';
+            }
+            if (filter === 'rejected') {
+              return currentStatus === 'rejected';
+            }
+            if (filter === 'all') {
+              return true;
+            }
+            return false;
+          }
+          
+          // For new items, only include if they need review
           const needsReview = extraction.needsReview || (extraction.confidence || 0) < 0.5;
           if (!needsReview) return false;
           
-          // Apply filter
+          // Apply filter for new items
           if (filter === 'pending') {
-            return true; // All items needing review are pending
+            return true; // New items needing review are pending
           }
           if (filter === 'all') {
             return true;
           }
-          return false;
+          return false; // Don't show new items in other filters
         })
         .map(({ extraction, incident }, index) => {
           const confidence = extraction.confidence || 0;
+          const itemId = `rev_${incident.id || `ext_${index}`}`;
+          // Get persisted status if exists
+          const persistedStatus = reviewStatuses[itemId];
           return {
-            id: `rev_${incident.id || `ext_${index}`}`,
+            id: itemId,
             incidentId: incident.id,
             originalText: extraction.originalText || incident.description,
             extractedData: {
@@ -84,7 +131,11 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
               : extraction.uncertainItems?.length > 0
               ? 'Contains uncertain items'
               : 'Needs verification',
-            status: 'pending',
+            status: persistedStatus?.status || 'pending',
+            adminNotes: persistedStatus?.adminNotes || null,
+            correctedData: persistedStatus?.correctedData || null,
+            reviewedBy: persistedStatus?.reviewedBy || null,
+            reviewedAt: persistedStatus?.reviewedAt || null,
             createdAt: extraction.timestamp || incident.created_at || new Date().toISOString(),
             extractionMethod: extraction.extractionMethod || 'keyword'
           };
@@ -188,15 +239,33 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
   const handleApprove = async (item) => {
     setProcessing(true);
     try {
-      await extractionAPI.processReview(item.id, {
+      // Try API first
+      try {
+        await extractionAPI.processReview(item.id, {
+          status: 'approved',
+          adminNotes: adminNotes || 'Approved by admin',
+          reviewedBy: 'admin'
+        });
+      } catch (apiError) {
+        console.log('API not available, saving locally');
+      }
+      
+      // Update persisted status
+      const updatedStatus = {
         status: 'approved',
         adminNotes: adminNotes || 'Approved by admin',
-        reviewedBy: 'admin'
-      });
+        reviewedBy: 'admin',
+        reviewedAt: new Date().toISOString()
+      };
+      
+      setReviewStatuses(prev => ({
+        ...prev,
+        [item.id]: updatedStatus
+      }));
       
       // Update local state
       setQueue(queue.map(q => 
-        q.id === item.id ? { ...q, status: 'approved', adminNotes } : q
+        q.id === item.id ? { ...q, ...updatedStatus } : q
       ));
       
       setAdminNotes('');
@@ -212,14 +281,33 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
   const handleReject = async (item) => {
     setProcessing(true);
     try {
-      await extractionAPI.processReview(item.id, {
+      // Try API first
+      try {
+        await extractionAPI.processReview(item.id, {
+          status: 'rejected',
+          adminNotes: adminNotes || 'Rejected by admin',
+          reviewedBy: 'admin'
+        });
+      } catch (apiError) {
+        console.log('API not available, saving locally');
+      }
+      
+      // Update persisted status
+      const updatedStatus = {
         status: 'rejected',
         adminNotes: adminNotes || 'Rejected by admin',
-        reviewedBy: 'admin'
-      });
+        reviewedBy: 'admin',
+        reviewedAt: new Date().toISOString()
+      };
       
+      setReviewStatuses(prev => ({
+        ...prev,
+        [item.id]: updatedStatus
+      }));
+      
+      // Update local state
       setQueue(queue.map(q => 
-        q.id === item.id ? { ...q, status: 'rejected', adminNotes } : q
+        q.id === item.id ? { ...q, ...updatedStatus } : q
       ));
       
       setAdminNotes('');
@@ -236,15 +324,35 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
     
     setProcessing(true);
     try {
-      await extractionAPI.processReview(item.id, {
+      // Try API first
+      try {
+        await extractionAPI.processReview(item.id, {
+          status: 'corrected',
+          adminNotes: adminNotes || 'Corrected by admin',
+          correctedData: editedData,
+          reviewedBy: 'admin'
+        });
+      } catch (apiError) {
+        console.log('API not available, saving locally');
+      }
+      
+      // Update persisted status
+      const updatedStatus = {
         status: 'corrected',
         adminNotes: adminNotes || 'Corrected by admin',
         correctedData: editedData,
-        reviewedBy: 'admin'
-      });
+        reviewedBy: 'admin',
+        reviewedAt: new Date().toISOString()
+      };
       
+      setReviewStatuses(prev => ({
+        ...prev,
+        [item.id]: updatedStatus
+      }));
+      
+      // Update local state
       setQueue(queue.map(q => 
-        q.id === item.id ? { ...q, status: 'corrected', adminNotes, correctedData: editedData } : q
+        q.id === item.id ? { ...q, ...updatedStatus } : q
       ));
       
       setAdminNotes('');
@@ -261,7 +369,9 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
 
   const startEdit = (item) => {
     setEditMode(item.id);
-    setEditedData(JSON.parse(JSON.stringify(item.extractedData)));
+    // Use correctedData if available, otherwise use extractedData
+    const dataToEdit = item.correctedData || item.extractedData;
+    setEditedData(JSON.parse(JSON.stringify(dataToEdit)));
   };
 
   const cancelEdit = () => {
@@ -437,7 +547,12 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
                   <div className="mb-4">
                     <p className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1">
                       <Sparkles className="w-3 h-3 text-purple-500" />
-                      Extracted Data
+                      {item.correctedData ? 'Corrected Data' : 'Extracted Data'}
+                      {item.correctedData && (
+                        <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                          Corrected
+                        </span>
+                      )}
                     </p>
                     
                     {editMode === item.id ? (
@@ -490,54 +605,59 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
                         </div>
                       </div>
                     ) : (
-                      /* View Mode */
-                      <div className="grid grid-cols-3 gap-3">
-                        {/* Supplies */}
-                        <div className="p-3 bg-white rounded-lg border border-gray-200">
-                          <span className="text-xs font-semibold text-gray-600">Supplies</span>
-                          <div className="mt-2 space-y-1">
-                            {item.extractedData.supplies?.map((s, idx) => (
-                              <div key={idx} className="flex items-center justify-between text-xs">
-                                <span>{s.item}</span>
-                                <span className="font-semibold">{s.quantity}</span>
+                      /* View Mode - Use correctedData if available, otherwise use extractedData */
+                      (() => {
+                        const displayData = item.correctedData || item.extractedData;
+                        return (
+                          <div className="grid grid-cols-3 gap-3">
+                            {/* Supplies */}
+                            <div className="p-3 bg-white rounded-lg border border-gray-200">
+                              <span className="text-xs font-semibold text-gray-600">Supplies</span>
+                              <div className="mt-2 space-y-1">
+                                {displayData.supplies?.map((s, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-xs">
+                                    <span>{s.item}</span>
+                                    <span className="font-semibold">{s.quantity || '-'}</span>
+                                  </div>
+                                )) || <span className="text-xs text-gray-400">None</span>}
                               </div>
-                            )) || <span className="text-xs text-gray-400">None</span>}
-                          </div>
-                        </div>
+                            </div>
 
-                        {/* Locations */}
-                        <div className="p-3 bg-white rounded-lg border border-gray-200">
-                          <span className="text-xs font-semibold text-gray-600">Locations</span>
-                          <div className="mt-2 space-y-1">
-                            {item.extractedData.locations?.map((l, idx) => (
-                              <div key={idx} className="text-xs">
-                                <span className="capitalize">{l.type}</span>
-                                {l.name && <span className="text-gray-500">: {l.name}</span>}
+                            {/* Locations */}
+                            <div className="p-3 bg-white rounded-lg border border-gray-200">
+                              <span className="text-xs font-semibold text-gray-600">Locations</span>
+                              <div className="mt-2 space-y-1">
+                                {displayData.locations?.map((l, idx) => (
+                                  <div key={idx} className="text-xs">
+                                    <span className="capitalize">{l.type}</span>
+                                    {l.name && <span className="text-gray-500">: {l.name}</span>}
+                                  </div>
+                                )) || <span className="text-xs text-gray-400">None</span>}
                               </div>
-                            )) || <span className="text-xs text-gray-400">None</span>}
-                          </div>
-                        </div>
+                            </div>
 
-                        {/* Vulnerable Groups */}
-                        <div className="p-3 bg-white rounded-lg border border-gray-200">
-                          <span className="text-xs font-semibold text-gray-600">Vulnerable Groups</span>
-                          <div className="mt-2 space-y-1">
-                            {item.extractedData.vulnerableGroups?.map((g, idx) => (
-                              <div key={idx} className="flex items-center justify-between text-xs">
-                                <span className="capitalize">{g.group}</span>
-                                <span className="font-semibold">{g.count}</span>
+                            {/* Vulnerable Groups */}
+                            <div className="p-3 bg-white rounded-lg border border-gray-200">
+                              <span className="text-xs font-semibold text-gray-600">Vulnerable Groups</span>
+                              <div className="mt-2 space-y-1">
+                                {displayData.vulnerableGroups?.map((g, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-xs">
+                                    <span className="capitalize">{g.group}</span>
+                                    <span className="font-semibold">{g.count || '-'}</span>
+                                  </div>
+                                )) || <span className="text-xs text-gray-400">None</span>}
                               </div>
-                            )) || <span className="text-xs text-gray-400">None</span>}
+                            </div>
                           </div>
-                        </div>
-                      </div>
+                        );
+                      })()
                     )}
                   </div>
 
                   {/* Admin Notes */}
-                  {item.status === 'pending' && (
-                    <div className="mb-4">
-                      <p className="text-xs font-semibold text-gray-500 mb-2">Admin Notes</p>
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold text-gray-500 mb-2">Admin Notes</p>
+                    {item.status === 'pending' ? (
                       <textarea
                         value={adminNotes}
                         onChange={(e) => setAdminNotes(e.target.value)}
@@ -545,8 +665,19 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none"
                         rows={2}
                       />
-                    </div>
-                  )}
+                    ) : item.adminNotes ? (
+                      <div className="p-3 bg-white rounded-lg border border-gray-200">
+                        <p className="text-sm text-gray-700">{item.adminNotes}</p>
+                        {item.reviewedBy && (
+                          <p className="text-xs text-gray-500 mt-2">
+                            Reviewed by: {item.reviewedBy} • {item.reviewedAt && formatDate(item.reviewedAt)}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic">No notes added</p>
+                    )}
+                  </div>
 
                   {/* Action Buttons */}
                   {item.status === 'pending' && (
@@ -598,14 +729,27 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
                     </div>
                   )}
 
-                  {/* Show admin notes for processed items */}
-                  {item.status !== 'pending' && item.adminNotes && (
-                    <div className="p-3 bg-white rounded-lg border border-gray-200">
-                      <p className="text-xs font-semibold text-gray-500 mb-1">
-                        <MessageSquare className="w-3 h-3 inline mr-1" />
-                        Admin Notes
-                      </p>
-                      <p className="text-sm text-gray-700">{item.adminNotes}</p>
+                  {/* Status Message for Processed Items */}
+                  {item.status !== 'pending' && (
+                    <div className={`p-3 rounded-lg border ${
+                      item.status === 'approved' ? 'bg-green-50 border-green-200' :
+                      item.status === 'corrected' ? 'bg-blue-50 border-blue-200' :
+                      'bg-red-50 border-red-200'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {item.status === 'approved' && <CheckCircle className="w-4 h-4 text-green-600" />}
+                        {item.status === 'corrected' && <Edit3 className="w-4 h-4 text-blue-600" />}
+                        {item.status === 'rejected' && <XCircle className="w-4 h-4 text-red-600" />}
+                        <p className={`text-sm font-medium ${
+                          item.status === 'approved' ? 'text-green-700' :
+                          item.status === 'corrected' ? 'text-blue-700' :
+                          'text-red-700'
+                        }`}>
+                          {item.status === 'approved' && 'This item has been approved and added to the system.'}
+                          {item.status === 'corrected' && 'This item has been corrected with updated data.'}
+                          {item.status === 'rejected' && 'This item has been rejected and will not be processed.'}
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
