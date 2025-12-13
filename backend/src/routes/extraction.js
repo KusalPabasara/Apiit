@@ -383,18 +383,6 @@ router.patch('/review-queue/:id', async (req, res) => {
       reviewedAt: new Date().toISOString()
     };
     
-    // If corrected, save to keyword learning
-    if (status === 'corrected' && correctedData) {
-      db.data.keywordLearning.push({
-        id: uuidv4(),
-        originalText: item.originalText,
-        originalExtraction: item.extractedData,
-        correctedData,
-        incidentId: item.incidentId,
-        createdAt: new Date().toISOString()
-      });
-    }
-    
     await db.write();
     
     res.json(db.data.adminReviewQueue[index]);

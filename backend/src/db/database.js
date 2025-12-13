@@ -21,7 +21,6 @@ const defaultData = {
   extractedLocations: [],     // Location categories from descriptions
   vulnerableGroups: [],       // Vulnerable groups identified
   adminReviewQueue: [],       // Items pending admin review
-  keywordLearning: [],        // Admin corrections for keyword learning
   supplyAggregates: []        // Aggregated supply needs
 };
 
@@ -47,7 +46,6 @@ async function initDB() {
   db.data.extractedLocations ||= [];
   db.data.vulnerableGroups ||= [];
   db.data.adminReviewQueue ||= [];
-  db.data.keywordLearning ||= [];
   db.data.supplyAggregates ||= [];
   
   // Add default users if none exist
