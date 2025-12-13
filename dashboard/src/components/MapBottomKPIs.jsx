@@ -25,7 +25,7 @@ function MapBottomKPIs({ incidents }) {
   const QuickKPI = ({ icon: Icon, label, value, subtitle, color = "blue" }) => (
     <div className="flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-gray-300 rounded-lg px-2.5 py-1.5 shadow-md flex-shrink-0">
       <div className={`w-7 h-7 rounded-lg bg-${color}-100 flex items-center justify-center`}>
-        <Icon className={`w-3.5 h-3.5 text-${color}-600`} />
+        <Icon className={`w-3.5 h-3.5 text-${color}-600`} /> 
       </div>
       <div className="min-w-0">
         <p className="text-[9px] text-gray-500 leading-tight">{label}</p>

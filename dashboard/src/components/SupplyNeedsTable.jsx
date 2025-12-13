@@ -8,7 +8,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { 
   Package, AlertTriangle, CheckCircle, Clock, Filter,
   ChevronDown, ChevronUp, Search, Download, RefreshCw,
-  Baby, Pill, Utensils, Droplet, Shirt, Home, Sparkles, Wrench
+  Baby, Pill, Utensils, Droplet, Shirt, Home, Sparkles, Wrench,
+  X, MapPin, Users, FileText, CheckCircle2
 } from 'lucide-react';
 import { extractionAPI } from '../services/api';
 import { extractFromDescription, aggregateSupplyNeeds } from '../services/descriptionExtractor';
@@ -43,6 +44,7 @@ const priorityBadgeColors = {
 
 function SupplyNeedsTable({ incidents = [], onRefresh }) {
   const [supplies, setSupplies] = useState([]);
+  const [extractionResults, setExtractionResults] = useState([]); // Store full extraction results
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({
     category: 'all',
@@ -52,6 +54,9 @@ function SupplyNeedsTable({ incidents = [], onRefresh }) {
   const [sortBy, setSortBy] = useState('priority');
   const [sortOrder, setSortOrder] = useState('asc');
   const [expandedRows, setExpandedRows] = useState(new Set());
+  const [selectedSupply, setSelectedSupply] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [supplyStatuses, setSupplyStatuses] = useState({}); // Track status per supply
 
   // Extract supplies from incidents
   useEffect(() => {
@@ -72,6 +77,7 @@ function SupplyNeedsTable({ incidents = [], onRefresh }) {
         const aggregated = aggregateSupplyNeeds(validExtractions);
         
         setSupplies(aggregated);
+        setExtractionResults(validExtractions); // Store for modal details
       } catch (error) {
         console.error('Error extracting supplies:', error);
       } finally {
@@ -150,6 +156,46 @@ function SupplyNeedsTable({ incidents = [], onRefresh }) {
       newExpanded.add(index);
     }
     setExpandedRows(newExpanded);
+  };
+
+  // Get incidents that need a specific supply
+  const getIncidentsForSupply = (supply) => {
+    const supplyKey = `${supply.category}-${supply.item}`.toLowerCase();
+    return extractionResults
+      .filter(({ extraction, incident }) => {
+        return extraction.supplies?.some(s => 
+          `${s.category}-${s.item}`.toLowerCase() === supplyKey
+        );
+      })
+      .map(({ incident, extraction }) => ({
+        incident,
+        extraction,
+        supplyDetails: extraction.supplies?.find(s => 
+          `${s.category}-${s.item}`.toLowerCase() === supplyKey
+        )
+      }));
+  };
+
+  // Handle supply card click
+  const handleSupplyClick = (supply) => {
+    setSelectedSupply(supply);
+    setShowModal(true);
+  };
+
+  // Update supply status
+  const updateSupplyStatus = async (supply, newStatus) => {
+    setSupplyStatuses(prev => ({
+      ...prev,
+      [`${supply.category}-${supply.item}`]: newStatus
+    }));
+    
+    // Here you could also save to backend
+    try {
+      // await extractionAPI.updateSupply(supply.id, { status: newStatus });
+      console.log('Status updated:', supply.item, newStatus);
+    } catch (error) {
+      console.error('Error updating status:', error);
+    }
   };
 
   const handleSort = (column) => {
@@ -344,7 +390,14 @@ function SupplyNeedsTable({ incidents = [], onRefresh }) {
                     <tr 
                       key={index}
                       className={`hover:bg-gray-50 cursor-pointer ${priorityColors[supply.priority]?.includes('critical') ? 'bg-red-50/50' : ''}`}
-                      onClick={() => toggleRow(index)}
+                      onClick={(e) => {
+                        // Don't open modal if clicking the expand/collapse icon
+                        if (e.target.closest('td:first-child')) {
+                          toggleRow(index);
+                        } else {
+                          handleSupplyClick(supply);
+                        }
+                      }}
                     >
                       <td className="px-2 py-3 text-center">
                         {isExpanded ? (
@@ -385,10 +438,20 @@ function SupplyNeedsTable({ incidents = [], onRefresh }) {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className="inline-flex items-center gap-1 text-xs text-yellow-600">
-                          <Clock className="w-3 h-3" />
-                          Pending
-                        </span>
+                        {(() => {
+                          const status = supplyStatuses[`${supply.category}-${supply.item}`] || 'pending';
+                          return status === 'success' ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-green-600">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Success
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs text-yellow-600">
+                              <Clock className="w-3 h-3" />
+                              Pending
+                            </span>
+                          );
+                        })()}
                       </td>
                     </tr>
                     {isExpanded && (
@@ -429,6 +492,176 @@ function SupplyNeedsTable({ incidents = [], onRefresh }) {
           Auto-extracted from descriptions
         </span>
       </div>
+
+      {/* Supply Details Modal */}
+      {showModal && selectedSupply && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                  <span className="text-2xl">{selectedSupply.icon || '📦'}</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white capitalize">{selectedSupply.item}</h2>
+                  <p className="text-sm text-blue-100 capitalize">{selectedSupply.category} • {selectedSupply.totalQuantity} {selectedSupply.unit || 'units'}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* Status Section */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-1">Current Status</p>
+                    {(() => {
+                      const status = supplyStatuses[`${selectedSupply.category}-${selectedSupply.item}`] || 'pending';
+                      return status === 'success' ? (
+                        <span className="inline-flex items-center gap-2 text-green-600">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span className="font-medium">Success - Supply Delivered</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-2 text-yellow-600">
+                          <Clock className="w-4 h-4" />
+                          <span className="font-medium">Pending - Awaiting Delivery</span>
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  {supplyStatuses[`${selectedSupply.category}-${selectedSupply.item}`] !== 'success' && (
+                    <button
+                      onClick={() => {
+                        updateSupplyStatus(selectedSupply, 'success');
+                      }}
+                      className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Mark as Delivered
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Incidents Needing This Supply */}
+              {(() => {
+                const relatedIncidents = getIncidentsForSupply(selectedSupply);
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <FileText className="w-5 h-5 text-gray-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Needed in {relatedIncidents.length} Incident{relatedIncidents.length !== 1 ? 's' : ''}
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                      {relatedIncidents.map(({ incident, extraction, supplyDetails }, idx) => (
+                        <div key={incident.id || idx} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-lg">
+                                  {incident.incident_type === 'flood' ? '🌊' :
+                                   incident.incident_type === 'landslide' ? '⛰️' :
+                                   incident.incident_type === 'road_block' ? '🚧' : '⚡'}
+                                </span>
+                                <span className="font-semibold text-gray-900 capitalize">
+                                  {incident.incident_type?.replace('_', ' ')}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded text-xs font-bold text-white ${
+                                  incident.severity === 1 ? 'bg-red-500' :
+                                  incident.severity === 2 ? 'bg-orange-500' :
+                                  incident.severity === 3 ? 'bg-yellow-500' : 'bg-gray-500'
+                                }`}>
+                                  Severity {incident.severity}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                                {incident.description}
+                              </p>
+                            </div>
+                            <div className="text-right ml-4">
+                              <p className="text-xs text-gray-500 mb-1">Quantity Needed</p>
+                              <p className="text-lg font-bold text-blue-600">
+                                {supplyDetails?.quantity || 1} {supplyDetails?.unit || selectedSupply.unit || 'units'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Location */}
+                          {extraction.locations && extraction.locations.length > 0 && (
+                            <div className="flex items-start gap-2 mb-2">
+                              <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                              <div className="flex-1">
+                                {extraction.locations.map((loc, locIdx) => (
+                                  <div key={locIdx} className="text-sm text-gray-700">
+                                    <span className="capitalize">{loc.type}</span>
+                                    {loc.name && <span>: {loc.name}</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Vulnerable Groups */}
+                          {extraction.vulnerableGroups && extraction.vulnerableGroups.length > 0 && (
+                            <div className="flex items-start gap-2">
+                              <Users className="w-4 h-4 text-gray-400 mt-0.5" />
+                              <div className="flex-1 flex flex-wrap gap-2">
+                                {extraction.vulnerableGroups.map((group, groupIdx) => (
+                                  <span key={groupIdx} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
+                                    <span>{group.icon || '👤'}</span>
+                                    <span className="capitalize">{group.group.replace('_', ' ')}</span>
+                                    {group.count > 0 && <span>({group.count})</span>}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Responder Info */}
+                          <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-500">
+                            Responder: {incident.responder_name || 'Unknown'} • 
+                            {new Date(incident.created_at).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+              <div className="text-sm text-gray-500">
+                Priority: <span className="font-semibold capitalize text-gray-700">{selectedSupply.priority}</span>
+              </div>
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
