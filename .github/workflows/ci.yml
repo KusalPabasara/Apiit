@@ -20,12 +20,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
       
       - name: Install dependencies
         working-directory: ./backend
-        run: npm ci
+        run: npm install
       
       - name: Check backend syntax
         working-directory: ./backend
@@ -51,12 +49,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: dashboard/package-lock.json
       
       - name: Install dependencies
         working-directory: ./dashboard
-        run: npm ci
+        run: npm install
       
       - name: Build dashboard
         working-directory: ./dashboard
@@ -84,12 +80,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: field-app/package-lock.json
       
       - name: Install dependencies
         working-directory: ./field-app
-        run: npm ci
+        run: npm install
       
       - name: Build field app
         working-directory: ./field-app
@@ -119,7 +113,7 @@ jobs:
           node-version: '18'
       
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
       
       - name: Check project structure
         run: |
@@ -147,10 +141,10 @@ jobs:
       
       - name: Install all dependencies
         run: |
-          npm ci
-          cd backend && npm ci
-          cd ../dashboard && npm ci
-          cd ../field-app && npm ci
+          npm install
+          cd backend && npm install
+          cd ../dashboard && npm install
+          cd ../field-app && npm install
       
       - name: Build all components
         run: |
