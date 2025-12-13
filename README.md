@@ -198,14 +198,3 @@ project-aegis/
 - **Auth**: UUID v4, JWT
 - **Deploy**: Nginx, PM2, Ubuntu VPS
 
----
-
-## 📄 License
-
-MIT License - Built for APIIT Sri Lanka
-
----
-
-<p align="center">
-  <strong>🛡️ Project Aegis - Protecting Lives Through Technology</strong>
-</p>
