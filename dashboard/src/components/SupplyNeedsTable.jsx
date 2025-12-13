@@ -56,7 +56,25 @@ function SupplyNeedsTable({ incidents = [], onRefresh }) {
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [selectedSupply, setSelectedSupply] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [supplyStatuses, setSupplyStatuses] = useState({}); // Track status per supply
+  const [supplyStatuses, setSupplyStatuses] = useState(() => {
+    // Load persisted statuses from localStorage on mount
+    try {
+      const saved = localStorage.getItem('aegis_supply_statuses');
+      return saved ? JSON.parse(saved) : {};
+    } catch (error) {
+      console.error('Error loading supply statuses:', error);
+      return {};
+    }
+  }); // Track status per supply
+
+  // Save statuses to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('aegis_supply_statuses', JSON.stringify(supplyStatuses));
+    } catch (error) {
+      console.error('Error saving supply statuses:', error);
+    }
+  }, [supplyStatuses]);
 
   // Extract supplies from incidents
   useEffect(() => {
@@ -182,17 +200,23 @@ function SupplyNeedsTable({ incidents = [], onRefresh }) {
     setShowModal(true);
   };
 
+  // Helper to get normalized supply key
+  const getSupplyKey = (supply) => {
+    return `${supply.category}-${supply.item}`.toLowerCase().trim();
+  };
+
   // Update supply status
   const updateSupplyStatus = async (supply, newStatus) => {
+    const key = getSupplyKey(supply);
     setSupplyStatuses(prev => ({
       ...prev,
-      [`${supply.category}-${supply.item}`]: newStatus
+      [key]: newStatus
     }));
     
     // Here you could also save to backend
     try {
       // await extractionAPI.updateSupply(supply.id, { status: newStatus });
-      console.log('Status updated:', supply.item, newStatus);
+      console.log('Status updated:', supply.item, newStatus, 'Key:', key);
     } catch (error) {
       console.error('Error updating status:', error);
     }
@@ -439,7 +463,7 @@ function SupplyNeedsTable({ incidents = [], onRefresh }) {
                       </td>
                       <td className="px-4 py-3 text-center">
                         {(() => {
-                          const status = supplyStatuses[`${supply.category}-${supply.item}`] || 'pending';
+                          const status = supplyStatuses[getSupplyKey(supply)] || 'pending';
                           return status === 'success' ? (
                             <span className="inline-flex items-center gap-1 text-xs text-green-600">
                               <CheckCircle2 className="w-3 h-3" />
@@ -524,7 +548,7 @@ function SupplyNeedsTable({ incidents = [], onRefresh }) {
                   <div>
                     <p className="text-sm font-semibold text-gray-700 mb-1">Current Status</p>
                     {(() => {
-                      const status = supplyStatuses[`${selectedSupply.category}-${selectedSupply.item}`] || 'pending';
+                      const status = supplyStatuses[getSupplyKey(selectedSupply)] || 'pending';
                       return status === 'success' ? (
                         <span className="inline-flex items-center gap-2 text-green-600">
                           <CheckCircle2 className="w-4 h-4" />
@@ -538,7 +562,7 @@ function SupplyNeedsTable({ incidents = [], onRefresh }) {
                       );
                     })()}
                   </div>
-                  {supplyStatuses[`${selectedSupply.category}-${selectedSupply.item}`] !== 'success' && (
+                  {supplyStatuses[getSupplyKey(selectedSupply)] !== 'success' && (
                     <button
                       onClick={() => {
                         updateSupplyStatus(selectedSupply, 'success');
