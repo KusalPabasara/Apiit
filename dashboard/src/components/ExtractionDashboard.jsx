@@ -27,6 +27,47 @@ function ExtractionDashboard({ incidents = [] }) {
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [reviewStatuses, setReviewStatuses] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aegis_review_statuses');
+      return saved ? JSON.parse(saved) : {};
+    } catch (error) {
+      return {};
+    }
+  });
+  const [supplyStatuses, setSupplyStatuses] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aegis_supply_statuses');
+      return saved ? JSON.parse(saved) : {};
+    } catch (error) {
+      return {};
+    }
+  });
+
+  // Listen for storage changes to update stats in real-time
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const reviewData = localStorage.getItem('aegis_review_statuses');
+        const supplyData = localStorage.getItem('aegis_supply_statuses');
+        if (reviewData) setReviewStatuses(JSON.parse(reviewData));
+        if (supplyData) setSupplyStatuses(JSON.parse(supplyData));
+      } catch (error) {
+        console.error('Error reading storage:', error);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    // Also listen for custom events from same-window updates
+    window.addEventListener('reviewStatusUpdated', handleStorageChange);
+    window.addEventListener('supplyStatusUpdated', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('reviewStatusUpdated', handleStorageChange);
+      window.removeEventListener('supplyStatusUpdated', handleStorageChange);
+    };
+  }, []);
 
   // Process all incidents on load
   useEffect(() => {
@@ -64,7 +105,7 @@ function ExtractionDashboard({ incidents = [] }) {
     return aggregateByLocation(extractionResults);
   }, [extractionResults]);
 
-  // Summary stats
+  // Summary stats - recalculate when extractionResults, reviewStatuses, or supplyStatuses change
   const stats = useMemo(() => {
     let totalSupplies = 0;
     let criticalSupplies = 0;
@@ -72,16 +113,42 @@ function ExtractionDashboard({ incidents = [] }) {
     let totalLocations = 0;
     let needsReview = 0;
 
-    extractionResults.forEach(({ extraction }) => {
-      totalSupplies += extraction.supplies?.length || 0;
-      criticalSupplies += extraction.supplies?.filter(s => s.priority === 'critical').length || 0;
-      totalVulnerable += extraction.vulnerableGroups?.reduce((sum, g) => sum + (g.count || 0), 0) || 0;
-      totalLocations += extraction.locations?.length || 0;
-      if (extraction.needsReview) needsReview++;
+    extractionResults.forEach(({ extraction, incident, index }) => {
+      const itemId = `incident-${incident.id}-${index}`;
+      const reviewStatus = reviewStatuses[itemId];
+      
+      // Use corrected data if available, otherwise use original extraction
+      const dataToUse = reviewStatus?.correctedData || {
+        supplies: extraction.supplies || [],
+        vulnerableGroups: extraction.vulnerableGroups || [],
+        locations: extraction.locations || []
+      };
+      
+      // Count supplies (only pending ones, not delivered)
+      dataToUse.supplies?.forEach(supply => {
+        const supplyKey = `${supply.category}-${supply.item}`;
+        const status = supplyStatuses[supplyKey];
+        if (!status || status !== 'success') {
+          totalSupplies++;
+          if (supply.priority === 'critical') {
+            criticalSupplies++;
+          }
+        }
+      });
+      
+      totalVulnerable += dataToUse.vulnerableGroups?.reduce((sum, g) => sum + (g.count || 0), 0) || 0;
+      totalLocations += dataToUse.locations?.length || 0;
+      
+      // Count items that need review (not yet approved/rejected/corrected)
+      if (extraction.needsReview || (extraction.confidence || 0) < 0.5) {
+        if (!reviewStatus || reviewStatus.status === 'pending') {
+          needsReview++;
+        }
+      }
     });
 
     return { totalSupplies, criticalSupplies, totalVulnerable, totalLocations, needsReview };
-  }, [extractionResults]);
+  }, [extractionResults, reviewStatuses, supplyStatuses]);
 
   // Group icons
   const groupIcons = {

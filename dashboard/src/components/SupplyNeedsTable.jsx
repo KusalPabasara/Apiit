@@ -213,6 +213,9 @@ function SupplyNeedsTable({ incidents = [], onRefresh }) {
       [key]: newStatus
     }));
     
+    // Dispatch event to notify other components
+    window.dispatchEvent(new CustomEvent('supplyStatusUpdated'));
+    
     // Here you could also save to backend
     try {
       // await extractionAPI.updateSupply(supply.id, { status: newStatus });

@@ -21,6 +21,7 @@ const statusColors = {
 
 function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
   const [queue, setQueue] = useState([]);
+  const [allQueueItems, setAllQueueItems] = useState([]); // Store all items for stats calculation
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('pending');
   const [expandedItem, setExpandedItem] = useState(null);
@@ -49,10 +50,29 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
     }
   }, [reviewStatuses]);
 
-  // Build review queue from extraction results
+  // Build review queue from extraction results when data changes
   useEffect(() => {
     buildReviewQueue();
-  }, [extractionResults, filter, reviewStatuses]);
+  }, [extractionResults, reviewStatuses]);
+
+  // Re-filter queue when filter changes or when allQueueItems is populated
+  useEffect(() => {
+    if (allQueueItems.length > 0) {
+      let filteredQueue = allQueueItems;
+      if (filter !== 'all') {
+        filteredQueue = allQueueItems.filter(item => {
+          if (filter === 'pending') {
+            return !item.status || item.status === 'pending';
+          }
+          return item.status === filter;
+        });
+      }
+      setQueue(filteredQueue);
+    } else if (allQueueItems.length === 0 && !loading) {
+      // If no items and not loading, set empty queue
+      setQueue([]);
+    }
+  }, [filter, allQueueItems, loading]);
 
   const buildReviewQueue = async () => {
     setLoading(true);
@@ -70,32 +90,20 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
       }
 
       // Build queue from extraction results
+      // Include ALL items that need review OR have a persisted status (approved/corrected/rejected)
       const reviewItems = extractionResults
         .map(({ extraction, incident }, index) => {
-          const itemId = `rev_${incident.id || `ext_${index}`}`;
+          const itemId = `incident-${incident.id}-${index}`;
           const persistedData = reviewStatuses[itemId];
           const persistedStatus = persistedData?.status;
           
-          // Only include items that need review OR have very low confidence (unless they have a persisted status)
+          // Include items that need review OR have a persisted status (so we can show approved/corrected/rejected items)
           const needsReview = extraction.needsReview || (extraction.confidence || 0) < 0.5;
           if (!needsReview && !persistedStatus) return null;
           
           return { extraction, incident, index, itemId, persistedStatus };
         })
         .filter(item => item !== null)
-        .filter(({ persistedStatus }) => {
-          // Apply filter
-          if (filter === 'pending') {
-            return !persistedStatus || persistedStatus === 'pending';
-          }
-          if (filter === 'all') {
-            return true;
-          }
-          if (filter === 'approved' || filter === 'corrected' || filter === 'rejected') {
-            return persistedStatus === filter;
-          }
-          return false;
-        })
         .map(({ extraction, incident, index, itemId, persistedStatus }) => {
           const confidence = extraction.confidence || 0;
           const persistedData = reviewStatuses[itemId] || {};
@@ -140,7 +148,7 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
       }
       
       // Merge mock data with persisted statuses
-      finalQueue = finalQueue.map(item => {
+      let allItems = finalQueue.map(item => {
         const persistedData = reviewStatuses[item.id];
         if (persistedData) {
           return {
@@ -155,17 +163,10 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
         return item;
       });
       
-      // Apply filter to final queue
-      if (filter !== 'all') {
-        finalQueue = finalQueue.filter(item => {
-          if (filter === 'pending') {
-            return !item.status || item.status === 'pending';
-          }
-          return item.status === filter;
-        });
-      }
+      // Store all items (unfiltered) for stats calculation
+      setAllQueueItems(allItems);
       
-      setQueue(finalQueue);
+      // Don't set queue here - let the filter useEffect handle it
     } catch (error) {
       console.error('Error building review queue:', error);
       // Fallback to mock data
@@ -275,10 +276,12 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
         [item.id]: { ...prev[item.id], ...reviewData }
       }));
       
-      // Update local state
-      setQueue(prevQueue => prevQueue.map(q => 
-        q.id === item.id ? { ...q, status: 'approved', adminNotes: reviewData.adminNotes, reviewedBy: 'admin', reviewedAt: reviewData.reviewedAt } : q
-      ));
+      // Update all items - filter effect will update the displayed queue
+      const updateItem = (q) => q.id === item.id ? { ...q, status: 'approved', adminNotes: reviewData.adminNotes, reviewedBy: 'admin', reviewedAt: reviewData.reviewedAt } : q;
+      setAllQueueItems(prevAll => prevAll.map(updateItem));
+      
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('reviewStatusUpdated'));
       
       setAdminNotes('');
       setExpandedItem(null);
@@ -317,9 +320,12 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
         [item.id]: { ...prev[item.id], ...reviewData }
       }));
       
-      setQueue(prevQueue => prevQueue.map(q => 
-        q.id === item.id ? { ...q, status: 'rejected', adminNotes: reviewData.adminNotes, reviewedBy: 'admin', reviewedAt: reviewData.reviewedAt } : q
-      ));
+      // Update all items - filter effect will update the displayed queue
+      const updateItem = (q) => q.id === item.id ? { ...q, status: 'rejected', adminNotes: reviewData.adminNotes, reviewedBy: 'admin', reviewedAt: reviewData.reviewedAt } : q;
+      setAllQueueItems(prevAll => prevAll.map(updateItem));
+      
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('reviewStatusUpdated'));
       
       setAdminNotes('');
       setExpandedItem(null);
@@ -361,9 +367,12 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
         [item.id]: { ...prev[item.id], ...reviewData }
       }));
       
-      setQueue(prevQueue => prevQueue.map(q => 
-        q.id === item.id ? { ...q, status: 'corrected', adminNotes: reviewData.adminNotes, correctedData: editedData, reviewedBy: 'admin', reviewedAt: reviewData.reviewedAt } : q
-      ));
+      // Update all items - filter effect will update the displayed queue
+      const updateItem = (q) => q.id === item.id ? { ...q, status: 'corrected', adminNotes: reviewData.adminNotes, correctedData: editedData, reviewedBy: 'admin', reviewedAt: reviewData.reviewedAt } : q;
+      setAllQueueItems(prevAll => prevAll.map(updateItem));
+      
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('reviewStatusUpdated'));
       
       setAdminNotes('');
       setEditMode(null);
@@ -467,12 +476,12 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
     return 'text-red-600 bg-red-100';
   };
 
-  // Stats
+  // Stats - calculated from all items, not just filtered queue
   const stats = {
-    pending: queue.filter(q => q.status === 'pending').length,
-    approved: queue.filter(q => q.status === 'approved').length,
-    corrected: queue.filter(q => q.status === 'corrected').length,
-    rejected: queue.filter(q => q.status === 'rejected').length
+    pending: allQueueItems.filter(q => !q.status || q.status === 'pending').length,
+    approved: allQueueItems.filter(q => q.status === 'approved').length,
+    corrected: allQueueItems.filter(q => q.status === 'corrected').length,
+    rejected: allQueueItems.filter(q => q.status === 'rejected').length
   };
 
   if (loading) {
@@ -537,7 +546,7 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
           className={`text-center cursor-pointer p-2 rounded-lg transition-colors ${filter === 'all' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
           onClick={() => setFilter('all')}
         >
-          <p className="text-2xl font-bold text-gray-600">{queue.length}</p>
+          <p className="text-2xl font-bold text-gray-600">{allQueueItems.length}</p>
           <p className="text-xs text-gray-500">All</p>
         </div>
       </div>
