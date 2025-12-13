@@ -28,8 +28,9 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
   const [editedData, setEditedData] = useState(null);
   const [adminNotes, setAdminNotes] = useState('');
   const [processing, setProcessing] = useState(false);
+  
+  // Load persisted review statuses from localStorage
   const [reviewStatuses, setReviewStatuses] = useState(() => {
-    // Load persisted review statuses from localStorage
     try {
       const saved = localStorage.getItem('aegis_review_statuses');
       return saved ? JSON.parse(saved) : {};
@@ -51,7 +52,7 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
   // Build review queue from extraction results
   useEffect(() => {
     buildReviewQueue();
-  }, [extractionResults, filter]);
+  }, [extractionResults, filter, reviewStatuses]);
 
   const buildReviewQueue = async () => {
     setLoading(true);
@@ -70,55 +71,40 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
 
       // Build queue from extraction results
       const reviewItems = extractionResults
-        .filter(({ extraction, incident }, index) => {
+        .map(({ extraction, incident }, index) => {
           const itemId = `rev_${incident.id || `ext_${index}`}`;
-          const persistedStatus = reviewStatuses[itemId];
-          const currentStatus = persistedStatus?.status || 'pending';
+          const persistedData = reviewStatuses[itemId];
+          const persistedStatus = persistedData?.status;
           
-          // If item has been processed (has persisted status), always include it
-          if (persistedStatus) {
-            // Apply filter based on current status
-            if (filter === 'pending') {
-              return currentStatus === 'pending';
-            }
-            if (filter === 'approved') {
-              return currentStatus === 'approved';
-            }
-            if (filter === 'corrected') {
-              return currentStatus === 'corrected';
-            }
-            if (filter === 'rejected') {
-              return currentStatus === 'rejected';
-            }
-            if (filter === 'all') {
-              return true;
-            }
-            return false;
-          }
-          
-          // For new items, only include if they need review
+          // Only include items that need review OR have very low confidence (unless they have a persisted status)
           const needsReview = extraction.needsReview || (extraction.confidence || 0) < 0.5;
-          if (!needsReview) return false;
+          if (!needsReview && !persistedStatus) return null;
           
-          // Apply filter for new items
+          return { extraction, incident, index, itemId, persistedStatus };
+        })
+        .filter(item => item !== null)
+        .filter(({ persistedStatus }) => {
+          // Apply filter
           if (filter === 'pending') {
-            return true; // New items needing review are pending
+            return !persistedStatus || persistedStatus === 'pending';
           }
           if (filter === 'all') {
             return true;
           }
-          return false; // Don't show new items in other filters
+          if (filter === 'approved' || filter === 'corrected' || filter === 'rejected') {
+            return persistedStatus === filter;
+          }
+          return false;
         })
-        .map(({ extraction, incident }, index) => {
+        .map(({ extraction, incident, index, itemId, persistedStatus }) => {
           const confidence = extraction.confidence || 0;
-          const itemId = `rev_${incident.id || `ext_${index}`}`;
-          // Get persisted status if exists
-          const persistedStatus = reviewStatuses[itemId];
+          const persistedData = reviewStatuses[itemId] || {};
+          
           return {
             id: itemId,
             incidentId: incident.id,
             originalText: extraction.originalText || incident.description,
-            extractedData: {
+            extractedData: persistedData.correctedData || {
               supplies: extraction.supplies || [],
               locations: extraction.locations || [],
               vulnerableGroups: extraction.vulnerableGroups || []
@@ -131,11 +117,10 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
               : extraction.uncertainItems?.length > 0
               ? 'Contains uncertain items'
               : 'Needs verification',
-            status: persistedStatus?.status || 'pending',
-            adminNotes: persistedStatus?.adminNotes || null,
-            correctedData: persistedStatus?.correctedData || null,
-            reviewedBy: persistedStatus?.reviewedBy || null,
-            reviewedAt: persistedStatus?.reviewedAt || null,
+            status: persistedData.status || 'pending',
+            adminNotes: persistedData.adminNotes || null,
+            reviewedBy: persistedData.reviewedBy || null,
+            reviewedAt: persistedData.reviewedAt || null,
             createdAt: extraction.timestamp || incident.created_at || new Date().toISOString(),
             extractionMethod: extraction.extractionMethod || 'keyword'
           };
@@ -149,11 +134,38 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
       });
 
       // If no items from extraction, use mock data for demo
+      let finalQueue = reviewItems;
       if (reviewItems.length === 0 && filter === 'pending') {
-        setQueue(getMockQueue());
-      } else {
-        setQueue(reviewItems);
+        finalQueue = getMockQueue();
       }
+      
+      // Merge mock data with persisted statuses
+      finalQueue = finalQueue.map(item => {
+        const persistedData = reviewStatuses[item.id];
+        if (persistedData) {
+          return {
+            ...item,
+            status: persistedData.status || item.status,
+            adminNotes: persistedData.adminNotes || item.adminNotes,
+            reviewedBy: persistedData.reviewedBy || item.reviewedBy,
+            reviewedAt: persistedData.reviewedAt || item.reviewedAt,
+            extractedData: persistedData.correctedData || item.extractedData
+          };
+        }
+        return item;
+      });
+      
+      // Apply filter to final queue
+      if (filter !== 'all') {
+        finalQueue = finalQueue.filter(item => {
+          if (filter === 'pending') {
+            return !item.status || item.status === 'pending';
+          }
+          return item.status === filter;
+        });
+      }
+      
+      setQueue(finalQueue);
     } catch (error) {
       console.error('Error building review queue:', error);
       // Fallback to mock data
@@ -250,8 +262,8 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
         console.log('API not available, saving locally');
       }
       
-      // Update persisted status
-      const updatedStatus = {
+      // Save to localStorage
+      const reviewData = {
         status: 'approved',
         adminNotes: adminNotes || 'Approved by admin',
         reviewedBy: 'admin',
@@ -260,12 +272,12 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
       
       setReviewStatuses(prev => ({
         ...prev,
-        [item.id]: updatedStatus
+        [item.id]: { ...prev[item.id], ...reviewData }
       }));
       
       // Update local state
-      setQueue(queue.map(q => 
-        q.id === item.id ? { ...q, ...updatedStatus } : q
+      setQueue(prevQueue => prevQueue.map(q => 
+        q.id === item.id ? { ...q, status: 'approved', adminNotes: reviewData.adminNotes, reviewedBy: 'admin', reviewedAt: reviewData.reviewedAt } : q
       ));
       
       setAdminNotes('');
@@ -292,8 +304,8 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
         console.log('API not available, saving locally');
       }
       
-      // Update persisted status
-      const updatedStatus = {
+      // Save to localStorage
+      const reviewData = {
         status: 'rejected',
         adminNotes: adminNotes || 'Rejected by admin',
         reviewedBy: 'admin',
@@ -302,12 +314,11 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
       
       setReviewStatuses(prev => ({
         ...prev,
-        [item.id]: updatedStatus
+        [item.id]: { ...prev[item.id], ...reviewData }
       }));
       
-      // Update local state
-      setQueue(queue.map(q => 
-        q.id === item.id ? { ...q, ...updatedStatus } : q
+      setQueue(prevQueue => prevQueue.map(q => 
+        q.id === item.id ? { ...q, status: 'rejected', adminNotes: reviewData.adminNotes, reviewedBy: 'admin', reviewedAt: reviewData.reviewedAt } : q
       ));
       
       setAdminNotes('');
@@ -336,8 +347,8 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
         console.log('API not available, saving locally');
       }
       
-      // Update persisted status
-      const updatedStatus = {
+      // Save to localStorage
+      const reviewData = {
         status: 'corrected',
         adminNotes: adminNotes || 'Corrected by admin',
         correctedData: editedData,
@@ -347,12 +358,11 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
       
       setReviewStatuses(prev => ({
         ...prev,
-        [item.id]: updatedStatus
+        [item.id]: { ...prev[item.id], ...reviewData }
       }));
       
-      // Update local state
-      setQueue(queue.map(q => 
-        q.id === item.id ? { ...q, ...updatedStatus } : q
+      setQueue(prevQueue => prevQueue.map(q => 
+        q.id === item.id ? { ...q, status: 'corrected', adminNotes: reviewData.adminNotes, correctedData: editedData, reviewedBy: 'admin', reviewedAt: reviewData.reviewedAt } : q
       ));
       
       setAdminNotes('');
@@ -369,9 +379,7 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
 
   const startEdit = (item) => {
     setEditMode(item.id);
-    // Use correctedData if available, otherwise use extractedData
-    const dataToEdit = item.correctedData || item.extractedData;
-    setEditedData(JSON.parse(JSON.stringify(dataToEdit)));
+    setEditedData(JSON.parse(JSON.stringify(item.extractedData)));
   };
 
   const cancelEdit = () => {
@@ -547,12 +555,7 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
                   <div className="mb-4">
                     <p className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1">
                       <Sparkles className="w-3 h-3 text-purple-500" />
-                      {item.correctedData ? 'Corrected Data' : 'Extracted Data'}
-                      {item.correctedData && (
-                        <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
-                          Corrected
-                        </span>
-                      )}
+                      Extracted Data
                     </p>
                     
                     {editMode === item.id ? (
@@ -605,59 +608,54 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
                         </div>
                       </div>
                     ) : (
-                      /* View Mode - Use correctedData if available, otherwise use extractedData */
-                      (() => {
-                        const displayData = item.correctedData || item.extractedData;
-                        return (
-                          <div className="grid grid-cols-3 gap-3">
-                            {/* Supplies */}
-                            <div className="p-3 bg-white rounded-lg border border-gray-200">
-                              <span className="text-xs font-semibold text-gray-600">Supplies</span>
-                              <div className="mt-2 space-y-1">
-                                {displayData.supplies?.map((s, idx) => (
-                                  <div key={idx} className="flex items-center justify-between text-xs">
-                                    <span>{s.item}</span>
-                                    <span className="font-semibold">{s.quantity || '-'}</span>
-                                  </div>
-                                )) || <span className="text-xs text-gray-400">None</span>}
+                      /* View Mode */
+                      <div className="grid grid-cols-3 gap-3">
+                        {/* Supplies */}
+                        <div className="p-3 bg-white rounded-lg border border-gray-200">
+                          <span className="text-xs font-semibold text-gray-600">Supplies</span>
+                          <div className="mt-2 space-y-1">
+                            {item.extractedData.supplies?.map((s, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-xs">
+                                <span>{s.item}</span>
+                                <span className="font-semibold">{s.quantity}</span>
                               </div>
-                            </div>
-
-                            {/* Locations */}
-                            <div className="p-3 bg-white rounded-lg border border-gray-200">
-                              <span className="text-xs font-semibold text-gray-600">Locations</span>
-                              <div className="mt-2 space-y-1">
-                                {displayData.locations?.map((l, idx) => (
-                                  <div key={idx} className="text-xs">
-                                    <span className="capitalize">{l.type}</span>
-                                    {l.name && <span className="text-gray-500">: {l.name}</span>}
-                                  </div>
-                                )) || <span className="text-xs text-gray-400">None</span>}
-                              </div>
-                            </div>
-
-                            {/* Vulnerable Groups */}
-                            <div className="p-3 bg-white rounded-lg border border-gray-200">
-                              <span className="text-xs font-semibold text-gray-600">Vulnerable Groups</span>
-                              <div className="mt-2 space-y-1">
-                                {displayData.vulnerableGroups?.map((g, idx) => (
-                                  <div key={idx} className="flex items-center justify-between text-xs">
-                                    <span className="capitalize">{g.group}</span>
-                                    <span className="font-semibold">{g.count || '-'}</span>
-                                  </div>
-                                )) || <span className="text-xs text-gray-400">None</span>}
-                              </div>
-                            </div>
+                            )) || <span className="text-xs text-gray-400">None</span>}
                           </div>
-                        );
-                      })()
+                        </div>
+
+                        {/* Locations */}
+                        <div className="p-3 bg-white rounded-lg border border-gray-200">
+                          <span className="text-xs font-semibold text-gray-600">Locations</span>
+                          <div className="mt-2 space-y-1">
+                            {item.extractedData.locations?.map((l, idx) => (
+                              <div key={idx} className="text-xs">
+                                <span className="capitalize">{l.type}</span>
+                                {l.name && <span className="text-gray-500">: {l.name}</span>}
+                              </div>
+                            )) || <span className="text-xs text-gray-400">None</span>}
+                          </div>
+                        </div>
+
+                        {/* Vulnerable Groups */}
+                        <div className="p-3 bg-white rounded-lg border border-gray-200">
+                          <span className="text-xs font-semibold text-gray-600">Vulnerable Groups</span>
+                          <div className="mt-2 space-y-1">
+                            {item.extractedData.vulnerableGroups?.map((g, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-xs">
+                                <span className="capitalize">{g.group}</span>
+                                <span className="font-semibold">{g.count}</span>
+                              </div>
+                            )) || <span className="text-xs text-gray-400">None</span>}
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
 
                   {/* Admin Notes */}
-                  <div className="mb-4">
-                    <p className="text-xs font-semibold text-gray-500 mb-2">Admin Notes</p>
-                    {item.status === 'pending' ? (
+                  {item.status === 'pending' && (
+                    <div className="mb-4">
+                      <p className="text-xs font-semibold text-gray-500 mb-2">Admin Notes</p>
                       <textarea
                         value={adminNotes}
                         onChange={(e) => setAdminNotes(e.target.value)}
@@ -665,19 +663,8 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none"
                         rows={2}
                       />
-                    ) : item.adminNotes ? (
-                      <div className="p-3 bg-white rounded-lg border border-gray-200">
-                        <p className="text-sm text-gray-700">{item.adminNotes}</p>
-                        {item.reviewedBy && (
-                          <p className="text-xs text-gray-500 mt-2">
-                            Reviewed by: {item.reviewedBy} • {item.reviewedAt && formatDate(item.reviewedAt)}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-gray-400 italic">No notes added</p>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {/* Action Buttons */}
                   {item.status === 'pending' && (
@@ -729,27 +716,14 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
                     </div>
                   )}
 
-                  {/* Status Message for Processed Items */}
-                  {item.status !== 'pending' && (
-                    <div className={`p-3 rounded-lg border ${
-                      item.status === 'approved' ? 'bg-green-50 border-green-200' :
-                      item.status === 'corrected' ? 'bg-blue-50 border-blue-200' :
-                      'bg-red-50 border-red-200'
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        {item.status === 'approved' && <CheckCircle className="w-4 h-4 text-green-600" />}
-                        {item.status === 'corrected' && <Edit3 className="w-4 h-4 text-blue-600" />}
-                        {item.status === 'rejected' && <XCircle className="w-4 h-4 text-red-600" />}
-                        <p className={`text-sm font-medium ${
-                          item.status === 'approved' ? 'text-green-700' :
-                          item.status === 'corrected' ? 'text-blue-700' :
-                          'text-red-700'
-                        }`}>
-                          {item.status === 'approved' && 'This item has been approved and added to the system.'}
-                          {item.status === 'corrected' && 'This item has been corrected with updated data.'}
-                          {item.status === 'rejected' && 'This item has been rejected and will not be processed.'}
-                        </p>
-                      </div>
+                  {/* Show admin notes for processed items */}
+                  {item.status !== 'pending' && item.adminNotes && (
+                    <div className="p-3 bg-white rounded-lg border border-gray-200">
+                      <p className="text-xs font-semibold text-gray-500 mb-1">
+                        <MessageSquare className="w-3 h-3 inline mr-1" />
+                        Admin Notes
+                      </p>
+                      <p className="text-sm text-gray-700">{item.adminNotes}</p>
                     </div>
                   )}
                 </div>
