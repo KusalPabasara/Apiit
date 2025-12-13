@@ -1,8 +1,33 @@
-# 🛡️ Project Aegis v2.0
+# 🛡️ Project Aegis
 
-## Real-Time Disaster Response & Emergency Coordination System
+---
 
-A comprehensive disaster response platform designed for Sri Lanka's emergency management. Features real-time emergency SOS with GPS tracking, offline-first architecture, multi-language support, and a command center dashboard for coordination.
+**Uniting Emergency Response, Amplifying Safety.**
+
+---
+
+<p align="center">
+  <a href="http://152.42.185.253/app">
+    <img src="https://img.shields.io/badge/DOWNLOAD-000000?style=for-the-badge&logo=android&logoColor=white" alt="DOWNLOAD">
+  </a>
+  <a href="http://152.42.185.253/app">
+    <img src="https://img.shields.io/badge/PWA-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="PWA">
+  </a>
+  <a href="http://152.42.185.253">
+    <img src="https://img.shields.io/badge/PLATFORM-000000?style=for-the-badge" alt="PLATFORM">
+  </a>
+  <a href="http://152.42.185.253">
+    <img src="https://img.shields.io/badge/WEB%20%7C%20PWA%20%7C%20DESKTOP-00C853?style=for-the-badge" alt="WEB | PWA | DESKTOP">
+  </a>
+  <a href="https://github.com/KusalPabasara/Apiit">
+    <img src="https://img.shields.io/badge/BUILT%20WITH-000000?style=for-the-badge&logo=github&logoColor=white" alt="BUILT WITH">
+  </a>
+  <a href="https://reactjs.org/">
+    <img src="https://img.shields.io/badge/REACT%20%7C%20NODE.JS-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="REACT | NODE.JS">
+  </a>
+</p>
+
+Project Aegis is the premier disaster response platform dedicated to emergency management across Sri Lanka. Built with **React** and **Node.js**, it delivers a seamless experience on Web, PWA, and Desktop from a single codebase.
 
 ---
 
