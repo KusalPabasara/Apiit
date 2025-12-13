@@ -48,47 +48,76 @@ function AdminReviewQueue({ onDataUpdate }) {
     }
   };
 
-  // Mock data for demonstration
+  // Mock data for demonstration - realistic review queue items
   const getMockQueue = () => [
     {
       id: 'rev_001',
       incidentId: 'inc_001',
-      originalText: 'Flood at Ratnapura Central School. 50 people trapped including 5 elders who need adult diapers (L size), 3 month baby needs Grow Pro milk powder, 2 diabetic patients need insulin.',
+      originalText: 'URGENT: Severe flooding at Ratnapura Central School. 120 students and 15 teachers trapped on second floor. 8 elders among staff need adult diapers (L size). 2 pregnant teachers require medical attention. Need 150 food packets, 200 water bottles urgently.',
       extractedData: {
         supplies: [
-          { item: 'adult diapers', category: 'elderly', quantity: 5, priority: 'high' },
-          { item: 'milk powder', category: 'baby', quantity: 1, priority: 'critical' },
-          { item: 'insulin', category: 'medical', quantity: 2, priority: 'critical' }
+          { item: 'adult diapers', category: 'elderly', quantity: 8, unit: 'packs', priority: 'high', icon: '👴' },
+          { item: 'food packets', category: 'food', quantity: 150, unit: 'packets', priority: 'critical', icon: '🍚' },
+          { item: 'water bottles', category: 'water', quantity: 200, unit: 'bottles', priority: 'critical', icon: '💧' }
         ],
-        locations: [{ type: 'school', name: 'Ratnapura Central School' }],
+        locations: [{ type: 'school', name: 'Ratnapura Central School', icon: '🏫' }],
         vulnerableGroups: [
-          { group: 'elderly', count: 5 },
-          { group: 'infant', count: 1 },
-          { group: 'medical_conditions', count: 2 }
+          { group: 'elderly', count: 8, icon: '👴' },
+          { group: 'pregnant', count: 2, icon: '🤰' },
+          { group: 'children', count: 120, icon: '🧒' }
         ]
       },
       confidence: 0.72,
-      reason: 'Contains uncertain items',
+      reason: 'Contains uncertain items - verify quantities',
       status: 'pending',
       createdAt: new Date().toISOString()
     },
     {
       id: 'rev_002',
       incidentId: 'inc_002',
-      originalText: 'Road blocked near Kiriella. 3 families stranded need food and water urgently. 2 pregnant women present.',
+      originalText: 'Critical landslide in Kiriella village near Buddhist Temple. 45 people trapped including 12 elderly and 6 children. 3 month old baby needs Lactogen milk powder. 2 diabetic patients need insulin. Need stretchers and oxygen cylinders.',
       extractedData: {
         supplies: [
-          { item: 'food', category: 'food', quantity: 3, priority: 'high' },
-          { item: 'water', category: 'water', quantity: 3, priority: 'critical' }
+          { item: 'Lactogen milk powder', category: 'baby', quantity: 1, unit: 'tin', priority: 'critical', icon: '👶' },
+          { item: 'insulin', category: 'medical', quantity: 2, unit: 'doses', priority: 'critical', icon: '💊' },
+          { item: 'stretchers', category: 'equipment', quantity: null, unit: 'units', priority: 'high', icon: '🔦' },
+          { item: 'oxygen cylinders', category: 'medical', quantity: null, unit: 'units', priority: 'critical', icon: '💊' }
         ],
+        locations: [{ type: 'religious', name: 'Buddhist Temple (Maha Vihara)', icon: '🛕' }],
         vulnerableGroups: [
-          { group: 'pregnant', count: 2 }
+          { group: 'elderly', count: 12, icon: '👴' },
+          { group: 'infant', count: 1, specialNeeds: '3 month old', icon: '👶' },
+          { group: 'children', count: 6, icon: '🧒' },
+          { group: 'medical_conditions', count: 2, specialNeeds: 'diabetic', icon: '🏥' }
         ]
       },
       confidence: 0.58,
-      reason: 'Low confidence extraction',
+      reason: 'Low confidence - some quantities unclear',
       status: 'pending',
       createdAt: new Date(Date.now() - 3600000).toISOString()
+    },
+    {
+      id: 'rev_003',
+      incidentId: 'inc_003',
+      originalText: 'Flood at Weligepola mosque. 50 displaced people need halal food packets and clean water. 4 month old baby needs Nan milk powder and pampers small size. Elderly man needs kidney medicine.',
+      extractedData: {
+        supplies: [
+          { item: 'halal food packets', category: 'food', quantity: 50, unit: 'packets', priority: 'high', icon: '🍚' },
+          { item: 'clean water', category: 'water', quantity: null, unit: 'liters', priority: 'critical', icon: '💧' },
+          { item: 'Nan milk powder', category: 'baby', quantity: 1, unit: 'tin', priority: 'critical', icon: '👶' },
+          { item: 'pampers', category: 'baby', quantity: null, unit: 'packs', priority: 'high', icon: '👶' },
+          { item: 'kidney medicine', category: 'medical', quantity: null, unit: 'doses', priority: 'critical', icon: '💊' }
+        ],
+        locations: [{ type: 'religious', name: 'Weligepola Mosque', icon: '🛕' }],
+        vulnerableGroups: [
+          { group: 'infant', count: 1, specialNeeds: '4 month old', icon: '👶' },
+          { group: 'elderly', count: 1, specialNeeds: 'kidney patient', icon: '👴' }
+        ]
+      },
+      confidence: 0.55,
+      reason: 'Multiple uncertain items - verify medicine details',
+      status: 'pending',
+      createdAt: new Date(Date.now() - 7200000).toISOString()
     }
   ];
 
