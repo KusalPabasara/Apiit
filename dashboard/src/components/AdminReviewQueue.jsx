@@ -387,22 +387,69 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
     setEditedData(null);
   };
 
+  // Real-time update functions - update both editedData and queue immediately
+  const updateQueueItemData = (itemId, newData) => {
+    setEditedData(newData);
+    setQueue(prevQueue => prevQueue.map(q => 
+      q.id === itemId ? { ...q, extractedData: { ...newData } } : q
+    ));
+  };
+
   const updateEditedSupply = (index, field, value) => {
     const newData = { ...editedData };
-    newData.supplies[index][field] = value;
-    setEditedData(newData);
+    if (!newData.supplies) newData.supplies = [];
+    newData.supplies[index] = { ...newData.supplies[index], [field]: value };
+    updateQueueItemData(editMode, newData);
+  };
+
+  const updateEditedVulnerableGroup = (index, field, value) => {
+    const newData = { ...editedData };
+    if (!newData.vulnerableGroups) newData.vulnerableGroups = [];
+    newData.vulnerableGroups[index] = { ...newData.vulnerableGroups[index], [field]: value };
+    updateQueueItemData(editMode, newData);
+  };
+
+  const updateEditedLocation = (index, field, value) => {
+    const newData = { ...editedData };
+    if (!newData.locations) newData.locations = [];
+    newData.locations[index] = { ...newData.locations[index], [field]: value };
+    updateQueueItemData(editMode, newData);
   };
 
   const addSupply = () => {
     const newData = { ...editedData };
-    newData.supplies = [...(newData.supplies || []), { item: '', category: 'food', quantity: 1, priority: 'medium' }];
-    setEditedData(newData);
+    newData.supplies = [...(newData.supplies || []), { item: '', category: 'food', quantity: 1, unit: 'units', priority: 'medium' }];
+    updateQueueItemData(editMode, newData);
   };
 
   const removeSupply = (index) => {
     const newData = { ...editedData };
     newData.supplies.splice(index, 1);
-    setEditedData(newData);
+    updateQueueItemData(editMode, newData);
+  };
+
+  const addVulnerableGroup = () => {
+    const newData = { ...editedData };
+    newData.vulnerableGroups = [...(newData.vulnerableGroups || []), { group: 'elderly', count: 1 }];
+    updateQueueItemData(editMode, newData);
+  };
+
+  const removeVulnerableGroup = (index) => {
+    const newData = { ...editedData };
+    newData.vulnerableGroups.splice(index, 1);
+    updateQueueItemData(editMode, newData);
+  };
+
+  const addLocation = () => {
+    const newData = { ...editedData };
+    newData.locations = [...(newData.locations || []), { type: 'residential', name: '' }];
+    updateQueueItemData(editMode, newData);
+  };
+
+  const removeLocation = (index) => {
+    const newData = { ...editedData };
+    newData.locations.splice(index, 1);
+    updateQueueItemData(editMode, newData);
   };
 
   const formatDate = (dateStr) => {
@@ -559,38 +606,56 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
                     </p>
                     
                     {editMode === item.id ? (
-                      /* Edit Mode */
+                      /* Edit Mode - Real-time Updates */
                       <div className="space-y-3">
+                        {/* Real-time Indicator */}
+                        <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-blue-700 font-medium">Changes update in real-time</span>
+                        </div>
+                        
                         {/* Supplies Editor */}
                         <div className="p-3 bg-white rounded-lg border border-gray-200">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-xs font-semibold text-gray-600">Supplies</span>
                             <button 
                               onClick={addSupply}
-                              className="text-xs text-blue-600 hover:text-blue-800"
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                             >
                               + Add Supply
                             </button>
                           </div>
                           {editedData?.supplies?.map((supply, idx) => (
-                            <div key={idx} className="flex items-center gap-2 mb-2">
+                            <div key={idx} className="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded">
                               <input
                                 type="text"
-                                value={supply.item}
+                                value={supply.item || ''}
                                 onChange={(e) => updateEditedSupply(idx, 'item', e.target.value)}
                                 placeholder="Item name"
-                                className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                                className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                               />
                               <input
                                 type="number"
-                                value={supply.quantity}
-                                onChange={(e) => updateEditedSupply(idx, 'quantity', parseInt(e.target.value))}
-                                className="w-16 px-2 py-1 border border-gray-300 rounded text-sm"
+                                value={supply.quantity ?? ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  updateEditedSupply(idx, 'quantity', val === '' ? null : parseInt(val) || 0);
+                                }}
+                                placeholder="Qty"
+                                min="0"
+                                className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <input
+                                type="text"
+                                value={supply.unit || ''}
+                                onChange={(e) => updateEditedSupply(idx, 'unit', e.target.value)}
+                                placeholder="Unit"
+                                className="w-16 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                               />
                               <select
-                                value={supply.priority}
+                                value={supply.priority || 'medium'}
                                 onChange={(e) => updateEditedSupply(idx, 'priority', e.target.value)}
-                                className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                className="px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                               >
                                 <option value="critical">Critical</option>
                                 <option value="high">High</option>
@@ -599,16 +664,123 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
                               </select>
                               <button 
                                 onClick={() => removeSupply(idx)}
-                                className="text-red-500 hover:text-red-700"
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                title="Remove"
                               >
                                 <X className="w-4 h-4" />
                               </button>
                             </div>
                           ))}
+                          {(!editedData.supplies || editedData.supplies.length === 0) && (
+                            <p className="text-xs text-gray-400 text-center py-2">No supplies. Click "+ Add Supply" to add.</p>
+                          )}
+                        </div>
+
+                        {/* Vulnerable Groups Editor */}
+                        <div className="p-3 bg-white rounded-lg border border-gray-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-semibold text-gray-600">Vulnerable Groups</span>
+                            <button 
+                              onClick={addVulnerableGroup}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              + Add Group
+                            </button>
+                          </div>
+                          {editedData?.vulnerableGroups?.map((group, idx) => (
+                            <div key={idx} className="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded">
+                              <select
+                                value={group.group || 'elderly'}
+                                onChange={(e) => updateEditedVulnerableGroup(idx, 'group', e.target.value)}
+                                className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="elderly">Elderly</option>
+                                <option value="infant">Infant</option>
+                                <option value="children">Children</option>
+                                <option value="pregnant">Pregnant</option>
+                                <option value="disabled">Disabled</option>
+                                <option value="medical_conditions">Medical Conditions</option>
+                              </select>
+                              <input
+                                type="number"
+                                value={group.count ?? ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  updateEditedVulnerableGroup(idx, 'count', val === '' ? null : parseInt(val) || 0);
+                                }}
+                                placeholder="Count"
+                                min="0"
+                                className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <input
+                                type="text"
+                                value={group.specialNeeds || ''}
+                                onChange={(e) => updateEditedVulnerableGroup(idx, 'specialNeeds', e.target.value)}
+                                placeholder="Special needs (optional)"
+                                className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <button 
+                                onClick={() => removeVulnerableGroup(idx)}
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                title="Remove"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                          {(!editedData.vulnerableGroups || editedData.vulnerableGroups.length === 0) && (
+                            <p className="text-xs text-gray-400 text-center py-2">No vulnerable groups. Click "+ Add Group" to add.</p>
+                          )}
+                        </div>
+
+                        {/* Locations Editor */}
+                        <div className="p-3 bg-white rounded-lg border border-gray-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-semibold text-gray-600">Locations</span>
+                            <button 
+                              onClick={addLocation}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              + Add Location
+                            </button>
+                          </div>
+                          {editedData?.locations?.map((location, idx) => (
+                            <div key={idx} className="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded">
+                              <select
+                                value={location.type || 'residential'}
+                                onChange={(e) => updateEditedLocation(idx, 'type', e.target.value)}
+                                className="px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="school">School</option>
+                                <option value="hospital">Hospital</option>
+                                <option value="religious">Religious</option>
+                                <option value="government">Government</option>
+                                <option value="shelter">Shelter</option>
+                                <option value="residential">Residential</option>
+                              </select>
+                              <input
+                                type="text"
+                                value={location.name || ''}
+                                onChange={(e) => updateEditedLocation(idx, 'name', e.target.value)}
+                                placeholder="Location name"
+                                className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <button 
+                                onClick={() => removeLocation(idx)}
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                title="Remove"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                          {(!editedData.locations || editedData.locations.length === 0) && (
+                            <p className="text-xs text-gray-400 text-center py-2">No locations. Click "+ Add Location" to add.</p>
+                          )}
                         </div>
                       </div>
                     ) : (
-                      /* View Mode */
+                      /* View Mode - Shows current data (edited if in edit mode) */
                       <div className="grid grid-cols-3 gap-3">
                         {/* Supplies */}
                         <div className="p-3 bg-white rounded-lg border border-gray-200">
@@ -616,8 +788,10 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
                           <div className="mt-2 space-y-1">
                             {item.extractedData.supplies?.map((s, idx) => (
                               <div key={idx} className="flex items-center justify-between text-xs">
-                                <span>{s.item}</span>
-                                <span className="font-semibold">{s.quantity}</span>
+                                <span className="truncate">{s.item || 'Unnamed'}</span>
+                                <span className="font-semibold ml-2">
+                                  {s.quantity || 0} {s.unit || ''}
+                                </span>
                               </div>
                             )) || <span className="text-xs text-gray-400">None</span>}
                           </div>
@@ -629,7 +803,7 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
                           <div className="mt-2 space-y-1">
                             {item.extractedData.locations?.map((l, idx) => (
                               <div key={idx} className="text-xs">
-                                <span className="capitalize">{l.type}</span>
+                                <span className="capitalize">{l.type || 'Unknown'}</span>
                                 {l.name && <span className="text-gray-500">: {l.name}</span>}
                               </div>
                             )) || <span className="text-xs text-gray-400">None</span>}
@@ -642,8 +816,8 @@ function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
                           <div className="mt-2 space-y-1">
                             {item.extractedData.vulnerableGroups?.map((g, idx) => (
                               <div key={idx} className="flex items-center justify-between text-xs">
-                                <span className="capitalize">{g.group}</span>
-                                <span className="font-semibold">{g.count}</span>
+                                <span className="capitalize">{g.group?.replace('_', ' ') || 'Unknown'}</span>
+                                <span className="font-semibold">{g.count || 0}</span>
                               </div>
                             )) || <span className="text-xs text-gray-400">None</span>}
                           </div>
