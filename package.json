@@ -1,0 +1,17 @@
+{
+  "name": "project-aegis",
+  "version": "1.0.0",
+  "description": "Offline-First Disaster Response System",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "field-app",
+    "dashboard"
+  ],
+  "scripts": {
+    "backend": "npm run dev --workspace=backend",
+    "field-app": "npm run dev --workspace=field-app",
+    "dashboard": "npm run dev --workspace=dashboard",
+    "install:all": "npm install && cd backend && npm install && cd ../field-app && npm install && cd ../dashboard && npm install"
+  }
+}

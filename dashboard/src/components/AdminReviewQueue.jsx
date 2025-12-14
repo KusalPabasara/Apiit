@@ -1,0 +1,876 @@
+/**
+ * Admin Review Queue Component
+ * Allows admins to review, approve, correct, or reject extracted data
+ */
+
+import { useState, useEffect } from 'react';
+import { 
+  ClipboardList, CheckCircle, XCircle, Edit3, AlertTriangle,
+  ChevronDown, ChevronUp, Clock, User, Eye, Save, X,
+  MessageSquare, Sparkles, RefreshCw
+} from 'lucide-react';
+
+// Status colors
+const statusColors = {
+  pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  approved: 'bg-green-100 text-green-800 border-green-200',
+  corrected: 'bg-blue-100 text-blue-800 border-blue-200',
+  rejected: 'bg-red-100 text-red-800 border-red-200'
+};
+
+function AdminReviewQueue({ onDataUpdate, extractionResults = [] }) {
+  const [queue, setQueue] = useState([]);
+  const [allQueueItems, setAllQueueItems] = useState([]); // Store all items for stats calculation
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('pending');
+  const [expandedItem, setExpandedItem] = useState(null);
+  const [editMode, setEditMode] = useState(null);
+  const [editedData, setEditedData] = useState(null);
+  const [adminNotes, setAdminNotes] = useState('');
+  const [processing, setProcessing] = useState(false);
+  
+  // Load persisted review statuses from localStorage
+  const [reviewStatuses, setReviewStatuses] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aegis_review_statuses');
+      return saved ? JSON.parse(saved) : {};
+    } catch (error) {
+      console.error('Error loading review statuses:', error);
+      return {};
+    }
+  });
+
+  // Save review statuses to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('aegis_review_statuses', JSON.stringify(reviewStatuses));
+    } catch (error) {
+      console.error('Error saving review statuses:', error);
+    }
+  }, [reviewStatuses]);
+
+  // Build review queue from extraction results when data changes
+  useEffect(() => {
+    buildReviewQueue();
+  }, [extractionResults, reviewStatuses]);
+
+  // Re-filter queue when filter changes or when allQueueItems is populated
+  useEffect(() => {
+    if (allQueueItems.length > 0) {
+      let filteredQueue = allQueueItems;
+      if (filter !== 'all') {
+        filteredQueue = allQueueItems.filter(item => {
+          if (filter === 'pending') {
+            return !item.status || item.status === 'pending';
+          }
+          return item.status === filter;
+        });
+      }
+      setQueue(filteredQueue);
+    } else if (allQueueItems.length === 0 && !loading) {
+      // If no items and not loading, set empty queue
+      setQueue([]);
+    }
+  }, [filter, allQueueItems, loading]);
+
+  const buildReviewQueue = async () => {
+    setLoading(true);
+    try {
+      // Build queue from extraction results
+      // Include ALL items that need review OR have a persisted status (approved/corrected/rejected)
+      const reviewItems = extractionResults
+        .map(({ extraction, incident }, index) => {
+          const itemId = `incident-${incident.id}-${index}`;
+          const persistedData = reviewStatuses[itemId];
+          const persistedStatus = persistedData?.status;
+          
+          // Include items that need review OR have a persisted status (so we can show approved/corrected/rejected items)
+          const needsReview = extraction.needsReview || (extraction.confidence || 0) < 0.5;
+          if (!needsReview && !persistedStatus) return null;
+          
+          return { extraction, incident, index, itemId, persistedStatus };
+        })
+        .filter(item => item !== null)
+        .map(({ extraction, incident, index, itemId, persistedStatus }) => {
+          const confidence = extraction.confidence || 0;
+          const persistedData = reviewStatuses[itemId] || {};
+          
+          return {
+            id: itemId,
+            incidentId: incident.id,
+            originalText: extraction.originalText || incident.description,
+            extractedData: persistedData.correctedData || {
+              supplies: extraction.supplies || [],
+              locations: extraction.locations || [],
+              vulnerableGroups: extraction.vulnerableGroups || []
+            },
+            confidence: confidence,
+            reason: confidence < 0.3 
+              ? 'Very low confidence - no keywords matched' 
+              : confidence < 0.5
+              ? 'Low confidence extraction'
+              : extraction.uncertainItems?.length > 0
+              ? 'Contains uncertain items'
+              : 'Needs verification',
+            status: persistedData.status || 'pending',
+            adminNotes: persistedData.adminNotes || null,
+            reviewedBy: persistedData.reviewedBy || null,
+            reviewedAt: persistedData.reviewedAt || null,
+            createdAt: extraction.timestamp || incident.created_at || new Date().toISOString(),
+            extractionMethod: extraction.extractionMethod || 'keyword'
+          };
+        });
+
+      console.log('Review queue built:', {
+        totalExtractions: extractionResults.length,
+        needsReview: extractionResults.filter(r => r.extraction.needsReview || (r.extraction.confidence || 0) < 0.5).length,
+        reviewItems: reviewItems.length,
+        filter
+      });
+
+      // If no items from extraction, use mock data for demo
+      let finalQueue = reviewItems;
+      if (reviewItems.length === 0 && filter === 'pending') {
+        finalQueue = getMockQueue();
+      }
+      
+      // Merge mock data with persisted statuses
+      let allItems = finalQueue.map(item => {
+        const persistedData = reviewStatuses[item.id];
+        if (persistedData) {
+          return {
+            ...item,
+            status: persistedData.status || item.status,
+            adminNotes: persistedData.adminNotes || item.adminNotes,
+            reviewedBy: persistedData.reviewedBy || item.reviewedBy,
+            reviewedAt: persistedData.reviewedAt || item.reviewedAt,
+            extractedData: persistedData.correctedData || item.extractedData
+          };
+        }
+        return item;
+      });
+      
+      // Store all items (unfiltered) for stats calculation
+      setAllQueueItems(allItems);
+      
+      // Don't set queue here - let the filter useEffect handle it
+    } catch (error) {
+      console.error('Error building review queue:', error);
+      // Fallback to mock data
+      setQueue(getMockQueue());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Mock data for demonstration - realistic review queue items
+  const getMockQueue = () => [
+    {
+      id: 'rev_001',
+      incidentId: 'inc_001',
+      originalText: 'URGENT: Severe flooding at Ratnapura Central School. 120 students and 15 teachers trapped on second floor. 8 elders among staff need adult diapers (L size). 2 pregnant teachers require medical attention. Need 150 food packets, 200 water bottles urgently.',
+      extractedData: {
+        supplies: [
+          { item: 'adult diapers', category: 'elderly', quantity: 8, unit: 'packs', priority: 'high', icon: '👴' },
+          { item: 'food packets', category: 'food', quantity: 150, unit: 'packets', priority: 'critical', icon: '🍚' },
+          { item: 'water bottles', category: 'water', quantity: 200, unit: 'bottles', priority: 'critical', icon: '💧' }
+        ],
+        locations: [{ type: 'school', name: 'Ratnapura Central School', icon: '🏫' }],
+        vulnerableGroups: [
+          { group: 'elderly', count: 8, icon: '👴' },
+          { group: 'pregnant', count: 2, icon: '🤰' },
+          { group: 'children', count: 120, icon: '🧒' }
+        ]
+      },
+      confidence: 0.72,
+      reason: 'Contains uncertain items - verify quantities',
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'rev_002',
+      incidentId: 'inc_002',
+      originalText: 'Critical landslide in Kiriella village near Buddhist Temple. 45 people trapped including 12 elderly and 6 children. 3 month old baby needs Lactogen milk powder. 2 diabetic patients need insulin. Need stretchers and oxygen cylinders.',
+      extractedData: {
+        supplies: [
+          { item: 'Lactogen milk powder', category: 'baby', quantity: 1, unit: 'tin', priority: 'critical', icon: '👶' },
+          { item: 'insulin', category: 'medical', quantity: 2, unit: 'doses', priority: 'critical', icon: '💊' },
+          { item: 'stretchers', category: 'equipment', quantity: null, unit: 'units', priority: 'high', icon: '🔦' },
+          { item: 'oxygen cylinders', category: 'medical', quantity: null, unit: 'units', priority: 'critical', icon: '💊' }
+        ],
+        locations: [{ type: 'religious', name: 'Buddhist Temple (Maha Vihara)', icon: '🛕' }],
+        vulnerableGroups: [
+          { group: 'elderly', count: 12, icon: '👴' },
+          { group: 'infant', count: 1, specialNeeds: '3 month old', icon: '👶' },
+          { group: 'children', count: 6, icon: '🧒' },
+          { group: 'medical_conditions', count: 2, specialNeeds: 'diabetic', icon: '🏥' }
+        ]
+      },
+      confidence: 0.58,
+      reason: 'Low confidence - some quantities unclear',
+      status: 'pending',
+      createdAt: new Date(Date.now() - 3600000).toISOString()
+    },
+    {
+      id: 'rev_003',
+      incidentId: 'inc_003',
+      originalText: 'Flood at Weligepola mosque. 50 displaced people need halal food packets and clean water. 4 month old baby needs Nan milk powder and pampers small size. Elderly man needs kidney medicine.',
+      extractedData: {
+        supplies: [
+          { item: 'halal food packets', category: 'food', quantity: 50, unit: 'packets', priority: 'high', icon: '🍚' },
+          { item: 'clean water', category: 'water', quantity: null, unit: 'liters', priority: 'critical', icon: '💧' },
+          { item: 'Nan milk powder', category: 'baby', quantity: 1, unit: 'tin', priority: 'critical', icon: '👶' },
+          { item: 'pampers', category: 'baby', quantity: null, unit: 'packs', priority: 'high', icon: '👶' },
+          { item: 'kidney medicine', category: 'medical', quantity: null, unit: 'doses', priority: 'critical', icon: '💊' }
+        ],
+        locations: [{ type: 'religious', name: 'Weligepola Mosque', icon: '🛕' }],
+        vulnerableGroups: [
+          { group: 'infant', count: 1, specialNeeds: '4 month old', icon: '👶' },
+          { group: 'elderly', count: 1, specialNeeds: 'kidney patient', icon: '👴' }
+        ]
+      },
+      confidence: 0.55,
+      reason: 'Multiple uncertain items - verify medicine details',
+      status: 'pending',
+      createdAt: new Date(Date.now() - 7200000).toISOString()
+    }
+  ];
+
+  const handleApprove = async (item) => {
+    setProcessing(true);
+    try {
+      // Save to localStorage
+      const reviewData = {
+        status: 'approved',
+        adminNotes: adminNotes || 'Approved by admin',
+        reviewedBy: 'admin',
+        reviewedAt: new Date().toISOString()
+      };
+      
+      setReviewStatuses(prev => ({
+        ...prev,
+        [item.id]: { ...prev[item.id], ...reviewData }
+      }));
+      
+      // Update all items - filter effect will update the displayed queue
+      const updateItem = (q) => q.id === item.id ? { ...q, status: 'approved', adminNotes: reviewData.adminNotes, reviewedBy: 'admin', reviewedAt: reviewData.reviewedAt } : q;
+      setAllQueueItems(prevAll => prevAll.map(updateItem));
+      
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('reviewStatusUpdated'));
+      
+      setAdminNotes('');
+      setExpandedItem(null);
+      onDataUpdate?.();
+    } catch (error) {
+      console.error('Error approving item:', error);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleReject = async (item) => {
+    setProcessing(true);
+    try {
+      // Save to localStorage
+      const reviewData = {
+        status: 'rejected',
+        adminNotes: adminNotes || 'Rejected by admin',
+        reviewedBy: 'admin',
+        reviewedAt: new Date().toISOString()
+      };
+      
+      setReviewStatuses(prev => ({
+        ...prev,
+        [item.id]: { ...prev[item.id], ...reviewData }
+      }));
+      
+      // Update all items - filter effect will update the displayed queue
+      const updateItem = (q) => q.id === item.id ? { ...q, status: 'rejected', adminNotes: reviewData.adminNotes, reviewedBy: 'admin', reviewedAt: reviewData.reviewedAt } : q;
+      setAllQueueItems(prevAll => prevAll.map(updateItem));
+      
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('reviewStatusUpdated'));
+      
+      setAdminNotes('');
+      setExpandedItem(null);
+    } catch (error) {
+      console.error('Error rejecting item:', error);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleSaveCorrection = async (item) => {
+    if (!editedData) return;
+    
+    setProcessing(true);
+    try {
+      // Save to localStorage
+      const reviewData = {
+        status: 'corrected',
+        adminNotes: adminNotes || 'Corrected by admin',
+        correctedData: editedData,
+        reviewedBy: 'admin',
+        reviewedAt: new Date().toISOString()
+      };
+      
+      setReviewStatuses(prev => ({
+        ...prev,
+        [item.id]: { ...prev[item.id], ...reviewData }
+      }));
+      
+      // Update all items - filter effect will update the displayed queue
+      const updateItem = (q) => q.id === item.id ? { ...q, status: 'corrected', adminNotes: reviewData.adminNotes, correctedData: editedData, reviewedBy: 'admin', reviewedAt: reviewData.reviewedAt } : q;
+      setAllQueueItems(prevAll => prevAll.map(updateItem));
+      
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('reviewStatusUpdated'));
+      
+      setAdminNotes('');
+      setEditMode(null);
+      setEditedData(null);
+      setExpandedItem(null);
+      onDataUpdate?.();
+    } catch (error) {
+      console.error('Error saving correction:', error);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const startEdit = (item) => {
+    setEditMode(item.id);
+    setEditedData(JSON.parse(JSON.stringify(item.extractedData)));
+  };
+
+  const cancelEdit = () => {
+    setEditMode(null);
+    setEditedData(null);
+  };
+
+  // Real-time update functions - update both editedData and queue immediately
+  const updateQueueItemData = (itemId, newData) => {
+    setEditedData(newData);
+    setQueue(prevQueue => prevQueue.map(q => 
+      q.id === itemId ? { ...q, extractedData: { ...newData } } : q
+    ));
+  };
+
+  const updateEditedSupply = (index, field, value) => {
+    const newData = { ...editedData };
+    if (!newData.supplies) newData.supplies = [];
+    newData.supplies[index] = { ...newData.supplies[index], [field]: value };
+    updateQueueItemData(editMode, newData);
+  };
+
+  const updateEditedVulnerableGroup = (index, field, value) => {
+    const newData = { ...editedData };
+    if (!newData.vulnerableGroups) newData.vulnerableGroups = [];
+    newData.vulnerableGroups[index] = { ...newData.vulnerableGroups[index], [field]: value };
+    updateQueueItemData(editMode, newData);
+  };
+
+  const updateEditedLocation = (index, field, value) => {
+    const newData = { ...editedData };
+    if (!newData.locations) newData.locations = [];
+    newData.locations[index] = { ...newData.locations[index], [field]: value };
+    updateQueueItemData(editMode, newData);
+  };
+
+  const addSupply = () => {
+    const newData = { ...editedData };
+    newData.supplies = [...(newData.supplies || []), { item: '', category: 'food', quantity: 1, unit: 'units', priority: 'medium' }];
+    updateQueueItemData(editMode, newData);
+  };
+
+  const removeSupply = (index) => {
+    const newData = { ...editedData };
+    newData.supplies.splice(index, 1);
+    updateQueueItemData(editMode, newData);
+  };
+
+  const addVulnerableGroup = () => {
+    const newData = { ...editedData };
+    newData.vulnerableGroups = [...(newData.vulnerableGroups || []), { group: 'elderly', count: 1 }];
+    updateQueueItemData(editMode, newData);
+  };
+
+  const removeVulnerableGroup = (index) => {
+    const newData = { ...editedData };
+    newData.vulnerableGroups.splice(index, 1);
+    updateQueueItemData(editMode, newData);
+  };
+
+  const addLocation = () => {
+    const newData = { ...editedData };
+    newData.locations = [...(newData.locations || []), { type: 'residential', name: '' }];
+    updateQueueItemData(editMode, newData);
+  };
+
+  const removeLocation = (index) => {
+    const newData = { ...editedData };
+    newData.locations.splice(index, 1);
+    updateQueueItemData(editMode, newData);
+  };
+
+  const formatDate = (dateStr) => {
+    return new Date(dateStr).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getConfidenceColor = (confidence) => {
+    if (confidence >= 0.8) return 'text-green-600 bg-green-100';
+    if (confidence >= 0.6) return 'text-yellow-600 bg-yellow-100';
+    return 'text-red-600 bg-red-100';
+  };
+
+  // Stats - calculated from all items, not just filtered queue
+  const stats = {
+    pending: allQueueItems.filter(q => !q.status || q.status === 'pending').length,
+    approved: allQueueItems.filter(q => q.status === 'approved').length,
+    corrected: allQueueItems.filter(q => q.status === 'corrected').length,
+    rejected: allQueueItems.filter(q => q.status === 'rejected').length
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-8 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 text-blue-500 animate-spin mx-auto mb-3" />
+          <p className="text-gray-600">Loading review queue...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+              <ClipboardList className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white">Admin Review Queue</h2>
+              <p className="text-sm text-purple-100">Review and approve extracted data</p>
+            </div>
+          </div>
+          <button
+            onClick={buildReviewQueue}
+            className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm flex items-center gap-1.5 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Bar */}
+      <div className="grid grid-cols-4 gap-4 p-4 bg-gray-50 border-b border-gray-200">
+        <div 
+          className={`text-center cursor-pointer p-2 rounded-lg transition-colors ${filter === 'pending' ? 'bg-yellow-100' : 'hover:bg-gray-100'}`}
+          onClick={() => setFilter('pending')}
+        >
+          <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+          <p className="text-xs text-gray-500">Pending</p>
+        </div>
+        <div 
+          className={`text-center cursor-pointer p-2 rounded-lg transition-colors ${filter === 'approved' ? 'bg-green-100' : 'hover:bg-gray-100'}`}
+          onClick={() => setFilter('approved')}
+        >
+          <p className="text-2xl font-bold text-green-600">{stats.approved}</p>
+          <p className="text-xs text-gray-500">Approved</p>
+        </div>
+        <div 
+          className={`text-center cursor-pointer p-2 rounded-lg transition-colors ${filter === 'corrected' ? 'bg-blue-100' : 'hover:bg-gray-100'}`}
+          onClick={() => setFilter('corrected')}
+        >
+          <p className="text-2xl font-bold text-blue-600">{stats.corrected}</p>
+          <p className="text-xs text-gray-500">Corrected</p>
+        </div>
+        <div 
+          className={`text-center cursor-pointer p-2 rounded-lg transition-colors ${filter === 'all' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
+          onClick={() => setFilter('all')}
+        >
+          <p className="text-2xl font-bold text-gray-600">{allQueueItems.length}</p>
+          <p className="text-xs text-gray-500">All</p>
+        </div>
+      </div>
+
+      {/* Queue Items */}
+      <div className="divide-y divide-gray-200 max-h-[600px] overflow-y-auto">
+        {queue.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            <ClipboardList className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <p>No items in review queue</p>
+          </div>
+        ) : (
+          queue.map((item) => (
+            <div key={item.id} className="border-l-4" style={{ borderLeftColor: item.status === 'pending' ? '#f59e0b' : item.status === 'approved' ? '#10b981' : item.status === 'corrected' ? '#3b82f6' : '#ef4444' }}>
+              {/* Item Header */}
+              <div 
+                className="p-4 cursor-pointer hover:bg-gray-50"
+                onClick={() => setExpandedItem(expandedItem === item.id ? null : item.id)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[item.status]}`}>
+                        {item.status.toUpperCase()}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getConfidenceColor(item.confidence)}`}>
+                        {Math.round(item.confidence * 100)}% confidence
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        <Clock className="w-3 h-3 inline mr-1" />
+                        {formatDate(item.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700 line-clamp-2">
+                      {item.originalText}
+                    </p>
+                    <p className="text-xs text-orange-600 mt-1">
+                      <AlertTriangle className="w-3 h-3 inline mr-1" />
+                      {item.reason}
+                    </p>
+                  </div>
+                  <div className="ml-4">
+                    {expandedItem === item.id ? (
+                      <ChevronUp className="w-5 h-5 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-gray-400" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Expanded Content */}
+              {expandedItem === item.id && (
+                <div className="px-4 pb-4 bg-gray-50">
+                  {/* Original Text */}
+                  <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200">
+                    <p className="text-xs font-semibold text-gray-500 mb-2">Original Description</p>
+                    <p className="text-sm text-gray-700">{item.originalText}</p>
+                  </div>
+
+                  {/* Extracted Data */}
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-purple-500" />
+                      Extracted Data
+                    </p>
+                    
+                    {editMode === item.id ? (
+                      /* Edit Mode - Real-time Updates */
+                      <div className="space-y-3">
+                        {/* Real-time Indicator */}
+                        <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-blue-700 font-medium">Changes update in real-time</span>
+                        </div>
+                        
+                        {/* Supplies Editor */}
+                        <div className="p-3 bg-white rounded-lg border border-gray-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-semibold text-gray-600">Supplies</span>
+                            <button 
+                              onClick={addSupply}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              + Add Supply
+                            </button>
+                          </div>
+                          {editedData?.supplies?.map((supply, idx) => (
+                            <div key={idx} className="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded">
+                              <input
+                                type="text"
+                                value={supply.item || ''}
+                                onChange={(e) => updateEditedSupply(idx, 'item', e.target.value)}
+                                placeholder="Item name"
+                                className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <input
+                                type="number"
+                                value={supply.quantity ?? ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  updateEditedSupply(idx, 'quantity', val === '' ? null : parseInt(val) || 0);
+                                }}
+                                placeholder="Qty"
+                                min="0"
+                                className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <input
+                                type="text"
+                                value={supply.unit || ''}
+                                onChange={(e) => updateEditedSupply(idx, 'unit', e.target.value)}
+                                placeholder="Unit"
+                                className="w-16 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <select
+                                value={supply.priority || 'medium'}
+                                onChange={(e) => updateEditedSupply(idx, 'priority', e.target.value)}
+                                className="px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="critical">Critical</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                              </select>
+                              <button 
+                                onClick={() => removeSupply(idx)}
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                title="Remove"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                          {(!editedData.supplies || editedData.supplies.length === 0) && (
+                            <p className="text-xs text-gray-400 text-center py-2">No supplies. Click "+ Add Supply" to add.</p>
+                          )}
+                        </div>
+
+                        {/* Vulnerable Groups Editor */}
+                        <div className="p-3 bg-white rounded-lg border border-gray-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-semibold text-gray-600">Vulnerable Groups</span>
+                            <button 
+                              onClick={addVulnerableGroup}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              + Add Group
+                            </button>
+                          </div>
+                          {editedData?.vulnerableGroups?.map((group, idx) => (
+                            <div key={idx} className="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded">
+                              <select
+                                value={group.group || 'elderly'}
+                                onChange={(e) => updateEditedVulnerableGroup(idx, 'group', e.target.value)}
+                                className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="elderly">Elderly</option>
+                                <option value="infant">Infant</option>
+                                <option value="children">Children</option>
+                                <option value="pregnant">Pregnant</option>
+                                <option value="disabled">Disabled</option>
+                                <option value="medical_conditions">Medical Conditions</option>
+                              </select>
+                              <input
+                                type="number"
+                                value={group.count ?? ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  updateEditedVulnerableGroup(idx, 'count', val === '' ? null : parseInt(val) || 0);
+                                }}
+                                placeholder="Count"
+                                min="0"
+                                className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <input
+                                type="text"
+                                value={group.specialNeeds || ''}
+                                onChange={(e) => updateEditedVulnerableGroup(idx, 'specialNeeds', e.target.value)}
+                                placeholder="Special needs (optional)"
+                                className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <button 
+                                onClick={() => removeVulnerableGroup(idx)}
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                title="Remove"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                          {(!editedData.vulnerableGroups || editedData.vulnerableGroups.length === 0) && (
+                            <p className="text-xs text-gray-400 text-center py-2">No vulnerable groups. Click "+ Add Group" to add.</p>
+                          )}
+                        </div>
+
+                        {/* Locations Editor */}
+                        <div className="p-3 bg-white rounded-lg border border-gray-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-semibold text-gray-600">Locations</span>
+                            <button 
+                              onClick={addLocation}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              + Add Location
+                            </button>
+                          </div>
+                          {editedData?.locations?.map((location, idx) => (
+                            <div key={idx} className="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded">
+                              <select
+                                value={location.type || 'residential'}
+                                onChange={(e) => updateEditedLocation(idx, 'type', e.target.value)}
+                                className="px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="school">School</option>
+                                <option value="hospital">Hospital</option>
+                                <option value="religious">Religious</option>
+                                <option value="government">Government</option>
+                                <option value="shelter">Shelter</option>
+                                <option value="residential">Residential</option>
+                              </select>
+                              <input
+                                type="text"
+                                value={location.name || ''}
+                                onChange={(e) => updateEditedLocation(idx, 'name', e.target.value)}
+                                placeholder="Location name"
+                                className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <button 
+                                onClick={() => removeLocation(idx)}
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                title="Remove"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                          {(!editedData.locations || editedData.locations.length === 0) && (
+                            <p className="text-xs text-gray-400 text-center py-2">No locations. Click "+ Add Location" to add.</p>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      /* View Mode - Shows current data (edited if in edit mode) */
+                      <div className="grid grid-cols-3 gap-3">
+                        {/* Supplies */}
+                        <div className="p-3 bg-white rounded-lg border border-gray-200">
+                          <span className="text-xs font-semibold text-gray-600">Supplies</span>
+                          <div className="mt-2 space-y-1">
+                            {item.extractedData.supplies?.map((s, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-xs">
+                                <span className="truncate">{s.item || 'Unnamed'}</span>
+                                <span className="font-semibold ml-2">
+                                  {s.quantity || 0} {s.unit || ''}
+                                </span>
+                              </div>
+                            )) || <span className="text-xs text-gray-400">None</span>}
+                          </div>
+                        </div>
+
+                        {/* Locations */}
+                        <div className="p-3 bg-white rounded-lg border border-gray-200">
+                          <span className="text-xs font-semibold text-gray-600">Locations</span>
+                          <div className="mt-2 space-y-1">
+                            {item.extractedData.locations?.map((l, idx) => (
+                              <div key={idx} className="text-xs">
+                                <span className="capitalize">{l.type || 'Unknown'}</span>
+                                {l.name && <span className="text-gray-500">: {l.name}</span>}
+                              </div>
+                            )) || <span className="text-xs text-gray-400">None</span>}
+                          </div>
+                        </div>
+
+                        {/* Vulnerable Groups */}
+                        <div className="p-3 bg-white rounded-lg border border-gray-200">
+                          <span className="text-xs font-semibold text-gray-600">Vulnerable Groups</span>
+                          <div className="mt-2 space-y-1">
+                            {item.extractedData.vulnerableGroups?.map((g, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-xs">
+                                <span className="capitalize">{g.group?.replace('_', ' ') || 'Unknown'}</span>
+                                <span className="font-semibold">{g.count || 0}</span>
+                              </div>
+                            )) || <span className="text-xs text-gray-400">None</span>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Admin Notes */}
+                  {item.status === 'pending' && (
+                    <div className="mb-4">
+                      <p className="text-xs font-semibold text-gray-500 mb-2">Admin Notes</p>
+                      <textarea
+                        value={adminNotes}
+                        onChange={(e) => setAdminNotes(e.target.value)}
+                        placeholder="Add notes (optional)..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none"
+                        rows={2}
+                      />
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  {item.status === 'pending' && (
+                    <div className="flex items-center gap-2">
+                      {editMode === item.id ? (
+                        <>
+                          <button
+                            onClick={() => handleSaveCorrection(item)}
+                            disabled={processing}
+                            className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                            <Save className="w-4 h-4" />
+                            Save Corrections
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleApprove(item)}
+                            disabled={processing}
+                            className="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => startEdit(item)}
+                            className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                            Edit & Correct
+                          </button>
+                          <button
+                            onClick={() => handleReject(item)}
+                            disabled={processing}
+                            className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            Reject
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Show admin notes for processed items */}
+                  {item.status !== 'pending' && item.adminNotes && (
+                    <div className="p-3 bg-white rounded-lg border border-gray-200">
+                      <p className="text-xs font-semibold text-gray-500 mb-1">
+                        <MessageSquare className="w-3 h-3 inline mr-1" />
+                        Admin Notes
+                      </p>
+                      <p className="text-sm text-gray-700">{item.adminNotes}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default AdminReviewQueue;
+

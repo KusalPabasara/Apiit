@@ -1,0 +1,209 @@
+{
+  "app": {
+    "name": "Project Aegis",
+    "tagline": "Disaster Response System"
+  },
+  "auth": {
+    "quickAccess": "Quick Access",
+    "deviceRegistration": "Register this device instantly",
+    "responderLogin": "Responder Login",
+    "withCredentials": "Sign in with username & password",
+    "yourDeviceId": "Your Device ID",
+    "username": "Username",
+    "password": "Password",
+    "enterUsername": "Enter username",
+    "enterPassword": "Enter password",
+    "signIn": "Sign In",
+    "signingIn": "Signing in...",
+    "loginFailed": "Login failed. Please check your credentials.",
+    "registrationFailed": "Device registration failed. Please try again.",
+    "offlineError": "You must be online to login.",
+    "demoCredentials": "Demo Credentials",
+    "logoutConfirm": "Are you sure you want to logout?"
+  },
+  "home": {
+    "welcome": "Welcome back,",
+    "fieldUser": "Field User"
+  },
+  "role": {
+    "fieldUser": "Field User",
+    "responder": "Responder",
+    "admin": "Administrator"
+  },
+  "emergency": {
+    "title": "EMERGENCY SOS",
+    "hold": "HOLD FOR 5 SECONDS",
+    "activating": "ACTIVATING...",
+    "active": "EMERGENCY ACTIVE",
+    "helpOnWay": "Help is on the way",
+    "sendingLocation": "Sending your location...",
+    "locationSent": "Location sent successfully!",
+    "locationStored": "Location saved offline. Will send when connected.",
+    "trackingActive": "Location tracking active",
+    "locationUpdates": "Location Updates",
+    "liveTracking": "Live Tracking Active",
+    "cancel": "Cancel Emergency"
+  },
+  "report": {
+    "title": "Report Disaster",
+    "type": "Disaster Type",
+    "severity": "Danger Level",
+    "peopleCount": "Estimated People",
+    "description": "Description",
+    "photos": "Add Photos",
+    "specialNeeds": "Special Needs",
+    "contact": "Contact Number",
+    "submit": "Submit Report",
+    "submitting": "Submitting...",
+    "success": "Report submitted successfully!",
+    "offline": "Report saved offline. Will sync when connected.",
+    "location": "Your Location",
+    "gettingLocation": "Getting location..."
+  },
+  "disasterTypes": {
+    "FLOOD": "Flood",
+    "LANDSLIDE": "Landslide",
+    "ROAD_BLOCK": "Road Blocked",
+    "POWER_LINE": "Power Line Down",
+    "BUILDING_COLLAPSE": "Building Collapse",
+    "FIRE": "Fire",
+    "OTHER": "Other Emergency"
+  },
+  "severity": {
+    "1": "Critical - Immediate Danger",
+    "2": "High - Urgent",
+    "3": "Medium - Needs Attention",
+    "4": "Low - Monitor",
+    "5": "Minimal - Information Only"
+  },
+  "advisories": {
+    "title": "Safety Advisory",
+    "FLOOD": {
+      "title": "🌊 Flood Safety",
+      "advice": [
+        "Move to higher ground immediately",
+        "Do not walk or drive through flood waters",
+        "Stay away from power lines and electrical wires",
+        "If trapped, go to the highest level of the building",
+        "Signal for help from a window if needed",
+        "Do not drink flood water"
+      ]
+    },
+    "LANDSLIDE": {
+      "title": "⛰️ Landslide Safety",
+      "advice": [
+        "Evacuate immediately if safe to do so",
+        "Move away from the path of the slide",
+        "Go to designated evacuation areas",
+        "Listen for unusual sounds like cracking trees",
+        "Stay alert when driving on mountain roads",
+        "If escape not possible, curl into a tight ball"
+      ]
+    },
+    "ROAD_BLOCK": {
+      "title": "🚧 Road Block Advisory",
+      "advice": [
+        "Do not attempt to move debris yourself",
+        "Find alternative routes if possible",
+        "Report exact location to authorities",
+        "Stay in vehicle if on road",
+        "Turn on hazard lights",
+        "Wait for emergency services"
+      ]
+    },
+    "POWER_LINE": {
+      "title": "⚡ Power Line Danger",
+      "advice": [
+        "Stay at least 10 meters away from downed lines",
+        "Assume all power lines are live",
+        "Do not touch anything in contact with the line",
+        "If in vehicle near line, stay inside",
+        "Warn others to stay away",
+        "Call emergency services immediately"
+      ]
+    },
+    "BUILDING_COLLAPSE": {
+      "title": "🏚️ Building Collapse",
+      "advice": [
+        "Do not enter damaged buildings",
+        "Stay away from weakened structures",
+        "If trapped, tap on pipes to alert rescuers",
+        "Cover your mouth to avoid dust inhalation",
+        "Use phone flashlight to signal if possible",
+        "Stay calm and conserve energy"
+      ]
+    },
+    "FIRE": {
+      "title": "🔥 Fire Safety",
+      "advice": [
+        "Evacuate immediately - do not gather belongings",
+        "Stay low to avoid smoke inhalation",
+        "Feel doors before opening - if hot, don't open",
+        "Use stairs, never elevators",
+        "If clothes catch fire: Stop, Drop, Roll",
+        "Call emergency services once safe"
+      ]
+    },
+    "OTHER": {
+      "title": "⚠️ General Emergency",
+      "advice": [
+        "Stay calm and assess the situation",
+        "Move to a safe location if possible",
+        "Call emergency services: 119",
+        "Follow instructions from authorities",
+        "Help others if you can do so safely",
+        "Wait for official updates"
+      ]
+    }
+  },
+  "contacts": {
+    "title": "Emergency Contacts",
+    "national": "National Emergency",
+    "disaster": "Disaster Management Center",
+    "police": "Police Emergency",
+    "fire": "Fire & Rescue",
+    "ambulance": "Ambulance (Suwa Seriya)",
+    "coast": "Coast Guard"
+  },
+  "nav": {
+    "home": "Home",
+    "report": "Report",
+    "history": "My Reports",
+    "contacts": "Emergency",
+    "settings": "Settings"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline Mode",
+    "offlineMode": "You're offline",
+    "offlineModeDesc": "Your reports will be saved and synced when connected",
+    "readyToConnect": "Ready to connect",
+    "offlineLogin": "Offline - Limited access",
+    "syncing": "Syncing...",
+    "synced": "Synced",
+    "pending": "Pending Sync"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "save": "Save",
+    "back": "Back",
+    "next": "Next",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "medicalId": "Medical ID (Optional)",
+    "bloodType": "Blood Type",
+    "allergies": "Allergies",
+    "medications": "Current Medications",
+    "conditions": "Medical Conditions",
+    "emergencyContact": "Emergency Contact",
+    "saveMedical": "Save Medical Info"
+  }
+}
