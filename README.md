@@ -41,6 +41,43 @@ A comprehensive disaster response platform designed for Sri Lanka's emergency ma
 - **IndexedDB Storage** - Reports stored locally until synced
 - **PWA** - Install on home screen, works offline
 
+### 🔄 Sync Engine Atomicity Feature
+
+**Atomic Data Synchronization**
+
+The sync engine ensures data integrity and prevents data loss during offline-to-online synchronization. It uses three mechanisms:
+
+**1. Atomicity Guarantee**
+- Reports are only marked as synced after the server confirms successful processing
+- If the server response is invalid or the update fails, the report remains unsynced and will retry
+- Prevents partial states where a report appears synced but wasn't saved on the server
+
+**2. Idempotency Protection**
+- Each report includes a unique `local_id` that serves as an idempotency key
+- If the same report is sent multiple times (due to retries or network issues), the server recognizes it as a duplicate and returns the existing record
+- Prevents duplicate incidents from appearing in the dashboard
+
+**3. Exponential Backoff Retry Strategy**
+- Automatic retry with exponential backoff delays: 1 second, 2 seconds, 4 seconds
+- Maximum of 3 retry attempts per report
+- If all retries fail, the report remains unsynced and will be retried in the next sync cycle
+- Handles transient network failures and temporary server unavailability
+
+**How It Works**
+1. **Save Locally First**: Reports are immediately saved to IndexedDB with `syncStatus: 0` (unsynced)
+2. **Attempt Sync**: If online, the sync engine attempts to upload the report to the server
+3. **Verify Success**: Only after receiving a successful response (200/201) with a valid record ID does it mark the report as synced
+4. **Retry on Failure**: If the sync fails, it retries with exponential backoff before giving up
+5. **Persistent State**: Reports remain in the local database until successfully synced, ensuring no data loss
+
+**Benefits**
+- ✅ **Zero Data Loss**: Reports are never lost, even during network failures
+- ✅ **No Duplicates**: Idempotency keys prevent duplicate records on the server
+- ✅ **Automatic Recovery**: Failed syncs automatically retry when connectivity returns
+- ✅ **Banking-Grade Reliability**: Similar to financial transaction systems, ensuring data consistency
+
+This implementation ensures that critical disaster response data is reliably synchronized between field devices and the central dashboard, even in challenging network conditions.
+
 ---
 
 ## 📱 Quick Start - Field Users
