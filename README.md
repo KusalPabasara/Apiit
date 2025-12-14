@@ -10,8 +10,8 @@ A comprehensive disaster response platform designed for Sri Lanka's emergency ma
 
 | Service | URL |
 |---------|-----|
-| **📱 Field App** | http://152.42.185.253/app |
-| **🖥️ Dashboard** | http://152.42.185.253/dashboard |
+| **📱 Field App** | https://aegis.kusalpabasara.me/app |
+| **🖥️ Dashboard** | https://aegis.kusalpabasara.me/dashboard |
 | **🔧 API** | http://152.42.185.253/api |
 
 ---
@@ -45,7 +45,7 @@ A comprehensive disaster response platform designed for Sri Lanka's emergency ma
 
 ## 📱 Quick Start - Field Users
 
-1. Open **http://152.42.185.253/app** on your phone
+1. Open **https://aegis.kusalpabasara.me/app** on your phone
 2. Tap **"Add to Home Screen"** for offline access
 3. Choose **"Quick Access"** to register instantly
 4. Or login: `responder1` / `responder123`
@@ -54,7 +54,7 @@ A comprehensive disaster response platform designed for Sri Lanka's emergency ma
 
 ## 🖥️ Quick Start - Administrators
 
-1. Open **http://152.42.185.253/dashboard**
+1. Open **https://aegis.kusalpabasara.me/dashboard**
 2. Login: `admin` / `admin123`
 3. Monitor emergencies and coordinate relief operations
 
