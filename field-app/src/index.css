@@ -1,0 +1,619 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   PROJECT AEGIS - FIELD APP DESIGN SYSTEM
+   Clean, Mobile-First, Emergency-Ready UI
+   ============================================ */
+
+:root {
+  /* Primary Colors */
+  --aegis-primary: #3B82F6;
+  --aegis-primary-dark: #2563EB;
+  --aegis-primary-light: #60A5FA;
+  
+  /* Emergency Colors */
+  --aegis-danger: #EF4444;
+  --aegis-danger-dark: #DC2626;
+  --aegis-warning: #F59E0B;
+  --aegis-success: #10B981;
+  
+  /* Neutral Colors */
+  --aegis-dark: #0F172A;
+  --aegis-dark-2: #1E293B;
+  --aegis-dark-3: #334155;
+  --aegis-gray: #64748B;
+  --aegis-light: #F1F5F9;
+  --aegis-white: #FFFFFF;
+  
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+  --gradient-danger: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+  --gradient-dark: linear-gradient(180deg, #1E293B 0%, #0F172A 100%);
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.15), 0 2px 4px -2px rgba(0,0,0,0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.2), 0 4px 6px -4px rgba(0,0,0,0.1);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.3);
+  --shadow-danger-glow: 0 0 30px rgba(239, 68, 68, 0.4);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--gradient-dark);
+  color: var(--aegis-light);
+  min-height: 100vh;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+}
+
+/* ============================================
+   TYPOGRAPHY
+   ============================================ */
+   
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--aegis-primary-light) 0%, var(--aegis-primary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================
+   SCROLLBAR
+   ============================================ */
+   
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--aegis-dark-3);
+  border-radius: 100px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--aegis-gray);
+}
+
+/* ============================================
+   PWA SAFE AREAS
+   ============================================ */
+   
+@supports (padding: max(0px)) {
+  body {
+    padding-top: max(0px, env(safe-area-inset-top));
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+}
+
+@media (display-mode: standalone) {
+  .status-bar-spacer {
+    height: env(safe-area-inset-top, 0);
+  }
+}
+
+/* ============================================
+   FORM ELEMENTS
+   ============================================ */
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.input-aegis {
+  @apply w-full py-3.5 rounded-xl border-2 border-transparent;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  background: var(--aegis-dark-2);
+  color: var(--aegis-white);
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+/* Input with left icon */
+.input-aegis.has-icon-left,
+.input-aegis.pl-12 {
+  padding-left: 3rem !important;
+}
+
+/* Input with right icon */
+.input-aegis.has-icon-right,
+.input-aegis.pr-12 {
+  padding-right: 3rem !important;
+}
+
+.input-aegis::placeholder {
+  color: var(--aegis-gray);
+  font-weight: 400;
+}
+
+.input-aegis:focus {
+  outline: none;
+  border-color: var(--aegis-primary);
+  box-shadow: var(--shadow-glow);
+}
+
+.input-aegis:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Input wrapper for icons */
+.input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.input-wrapper .input-icon-left {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--aegis-gray);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.input-wrapper .input-icon-right {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--aegis-gray);
+  cursor: pointer;
+  z-index: 1;
+}
+
+.input-wrapper .input-icon-right:hover {
+  color: var(--aegis-light);
+}
+
+/* ============================================
+   BUTTONS - Large Touch Targets (min 48px)
+   ============================================ */
+
+.btn-aegis {
+  @apply flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-200;
+  min-height: 52px;
+  padding: 14px 24px;
+  font-size: 1rem;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-aegis:active {
+  transform: scale(0.98);
+}
+
+.btn-aegis:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary-aegis {
+  background: var(--gradient-primary);
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary-aegis:hover:not(:disabled) {
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-danger-aegis {
+  background: var(--gradient-danger);
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.btn-danger-aegis:hover:not(:disabled) {
+  box-shadow: var(--shadow-danger-glow);
+}
+
+.btn-outline-aegis {
+  background: transparent;
+  border: 2px solid var(--aegis-dark-3);
+  color: var(--aegis-light);
+}
+
+.btn-outline-aegis:hover:not(:disabled) {
+  border-color: var(--aegis-primary);
+  color: var(--aegis-primary);
+}
+
+.btn-ghost-aegis {
+  background: transparent;
+  color: var(--aegis-gray);
+}
+
+.btn-ghost-aegis:hover:not(:disabled) {
+  background: var(--aegis-dark-2);
+  color: var(--aegis-light);
+}
+
+/* ============================================
+   CARDS
+   ============================================ */
+
+.card-aegis {
+  background: var(--aegis-dark-2);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.card-aegis-glass {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* ============================================
+   STATUS INDICATORS
+   ============================================ */
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot-online {
+  background: var(--aegis-success);
+  box-shadow: 0 0 8px var(--aegis-success);
+  animation: pulse-green 2s infinite;
+}
+
+.status-dot-offline {
+  background: var(--aegis-gray);
+}
+
+.status-dot-warning {
+  background: var(--aegis-warning);
+  animation: pulse-yellow 1.5s infinite;
+}
+
+@keyframes pulse-green {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes pulse-yellow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+/* ============================================
+   EMERGENCY BUTTON
+   ============================================ */
+
+.emergency-btn {
+  width: 100%;
+  height: 160px;
+  border-radius: 24px;
+  background: linear-gradient(145deg, #EF4444 0%, #B91C1C 100%);
+  border: none;
+  color: white;
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 
+    0 8px 32px rgba(239, 68, 68, 0.4),
+    inset 0 1px 0 rgba(255,255,255,0.2);
+  transition: all 0.3s ease;
+}
+
+.emergency-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.emergency-btn:active::before {
+  opacity: 1;
+}
+
+.emergency-btn.holding {
+  animation: emergency-pulse 1s infinite;
+  box-shadow: 
+    0 0 60px rgba(239, 68, 68, 0.6),
+    0 8px 32px rgba(239, 68, 68, 0.5);
+}
+
+@keyframes emergency-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.98); }
+}
+
+/* ============================================
+   PROGRESS RING (for hold countdown)
+   ============================================ */
+
+.progress-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+}
+
+.progress-ring-circle {
+  stroke: white;
+  stroke-width: 4;
+  fill: none;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dashoffset 0.1s linear;
+}
+
+/* ============================================
+   BOTTOM NAVIGATION
+   ============================================ */
+
+.bottom-nav-aegis {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 72px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255,255,255,0.05);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  z-index: 1000;
+}
+
+.nav-item-aegis {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  color: var(--aegis-gray);
+  text-decoration: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: color 0.2s ease;
+  min-width: 64px;
+}
+
+.nav-item-aegis.active {
+  color: var(--aegis-primary);
+}
+
+.nav-item-aegis svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* ============================================
+   LANGUAGE SWITCHER
+   ============================================ */
+
+.lang-switcher {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  background: var(--aegis-dark-2);
+  border-radius: 12px;
+}
+
+.lang-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--aegis-gray);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lang-btn.active {
+  background: var(--aegis-primary);
+  color: white;
+}
+
+.lang-btn:hover:not(.active) {
+  color: var(--aegis-light);
+}
+
+/* ============================================
+   LOADING STATES
+   ============================================ */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--aegis-dark-2) 25%,
+    var(--aegis-dark-3) 50%,
+    var(--aegis-dark-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--aegis-dark-3);
+  border-top-color: var(--aegis-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   TOAST NOTIFICATIONS
+   ============================================ */
+
+.toast-aegis {
+  position: fixed;
+  bottom: 88px;
+  left: 16px;
+  right: 16px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: toast-in 0.3s ease;
+  z-index: 9999;
+}
+
+.toast-success {
+  background: var(--aegis-success);
+  color: white;
+}
+
+.toast-error {
+  background: var(--aegis-danger);
+  color: white;
+}
+
+.toast-warning {
+  background: var(--aegis-warning);
+  color: var(--aegis-dark);
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   PAGE TRANSITIONS
+   ============================================ */
+
+.page-enter {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: all 0.3s ease;
+}
+
+.page-exit {
+  opacity: 1;
+}
+
+.page-exit-active {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.safe-top {
+  padding-top: env(safe-area-inset-top, 12px);
+}
+
+.safe-bottom {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+}
+
+.text-muted {
+  color: var(--aegis-gray);
+}
+
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+}
+
+.gap-tight { gap: 8px; }
+.gap-normal { gap: 16px; }
+.gap-loose { gap: 24px; }
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: 2px solid var(--aegis-primary);
+  outline-offset: 2px;
+}
+@keyframes pulse-online {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.pulse-online {
+  animation: pulse-online 2s infinite;
+}
