@@ -48,22 +48,6 @@ const createIcon = (types, severity) => {
   });
 };
 
-// SOS Marker Icon with distinct animation
-const createSOSIcon = () => {
-  return L.divIcon({
-    className: 'custom-marker-wrapper',
-    html: `
-      <div class="custom-marker sos-marker" 
-           style="width: 50px; height: 50px; background: #dc2626; position: relative;">
-        <span style="font-size: 24px;">🆘</span>
-      </div>
-    `,
-    iconSize: [50, 50],
-    iconAnchor: [25, 25],
-    popupAnchor: [0, -25]
-  });
-};
-
 // Voice Note Player Component - Light Theme
 function VoicePlayer({ voiceNote }) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -120,7 +104,7 @@ function MapCenterHandler({ center, zoom }) {
   return null;
 }
 
-function IncidentMap({ incidents, blockedRoads = [], selectedIncident, onSelectIncident, sosAlerts = [] }) {
+function IncidentMap({ incidents, blockedRoads = [], selectedIncident, onSelectIncident }) {
   // Ratnapura District center
   const defaultCenter = [6.6828, 80.3992];
   const defaultZoom = 10;
@@ -256,43 +240,6 @@ function IncidentMap({ incidents, blockedRoads = [], selectedIncident, onSelectI
           </Marker>
           );
         })}
-        
-        {/* SOS Alerts Markers - Distinct animation */}
-        {sosAlerts.filter(alert => alert.status === 'active').map((alert) => (
-          <Marker
-            key={`sos-${alert.id || alert.timestamp}`}
-            position={[alert.latitude, alert.longitude]}
-            icon={createSOSIcon()}
-          >
-            <Popup>
-              <div className="p-3 min-w-[220px] max-w-[280px]">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-red-600 text-base flex items-center gap-2">
-                    <span>🆘</span> SOS EMERGENCY
-                  </h3>
-                  <span className="px-2 py-1 rounded-full text-xs font-bold text-white bg-red-600 animate-pulse">
-                    URGENT
-                  </span>
-                </div>
-                
-                <p className="text-sm text-gray-700 mb-2">
-                  <strong>{alert.responder_name || 'Unknown Responder'}</strong> needs immediate help!
-                </p>
-                
-                <div className="space-y-1.5 text-xs text-gray-500">
-                  <p className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" />
-                    {formatDate(alert.timestamp)}
-                  </p>
-                  <p className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5" />
-                    {alert.latitude?.toFixed(4)}, {alert.longitude?.toFixed(4)}
-                  </p>
-                </div>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
         
         {/* Blocked Roads Markers */}
         {blockedRoads.map((road) => {

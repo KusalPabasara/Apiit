@@ -221,8 +221,8 @@ function DashboardPage({ onLogout }) {
               <Shield className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-base text-gray-800">Aegis Command</h1>
-              <p className="text-[10px] text-gray-500">Ratnapura District HQ</p>
+              <h1 className="font-bold text-lg text-gray-800">Aegis Command</h1>
+              <p className="text-xs text-gray-500">Ratnapura District HQ</p>
             </div>
           </div>
 
@@ -232,7 +232,7 @@ function DashboardPage({ onLogout }) {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   activeTab === tab.id 
                     ? 'bg-white text-blue-600 shadow-sm' 
                     : 'text-gray-600 hover:text-gray-800'
@@ -272,7 +272,7 @@ function DashboardPage({ onLogout }) {
               <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
                 <User className="w-3.5 h-3.5 text-white" />
               </div>
-              <span className="text-xs font-medium text-gray-700">{user?.name || 'Admin'}</span>
+              <span className="text-sm font-medium text-gray-700">{user?.name || 'Admin'}</span>
             </div>
 
             {/* Logout */}
@@ -291,7 +291,7 @@ function DashboardPage({ onLogout }) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-medium transition-colors min-w-max px-4 ${
+              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors min-w-max px-4 ${
                 activeTab === tab.id 
                   ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-500' 
                   : 'text-gray-500'
@@ -379,7 +379,6 @@ function DashboardPage({ onLogout }) {
                       blockedRoads={blockedRoads}
                       selectedIncident={selectedIncident}
                       onSelectIncident={setSelectedIncident}
-                      sosAlerts={sosAlerts}
                     />
                   </div>
                   
@@ -446,7 +445,7 @@ function DashboardPage({ onLogout }) {
                         incident={incident}
                         onSelect={() => {
                           setSelectedIncident(incident);
-                          // Show modal popup instead of navigating to map
+                          setActiveTab('map');
                         }}
                       />
                     ))
@@ -500,7 +499,7 @@ function DashboardPage({ onLogout }) {
         )}
       </main>
 
-      {/* Selected Incident Detail Modal - Shows when incident is selected from list */}
+      {/* Selected Incident Detail Modal */}
       {selectedIncident && activeTab === 'list' && (
         <IncidentDetailModal 
           incident={selectedIncident} 
